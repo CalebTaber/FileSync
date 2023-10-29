@@ -1,0 +1,8 @@
+[ ] Show list of files to be synced (whitelist)
+    [ ] Allow user to add/remove files/directories
+
+[ ] Show list of files within whitelist locations to not be synced (blacklist)
+    [ ] Allow user to add/remove files/directories
+
+[ ] Have user enter remote IP addresses and be able to name them
+[ ] Detect when sftp connection fails and don't mark sync as complete in this case
