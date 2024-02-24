@@ -1,8 +1,1 @@
-Trash local /sync/commonfile1 and replace with remote
-Trash remote /sync/commonfile2 and replace with local
-Copy directory /sync/newdir1 to local
-Copy file /sync/newdir1/newfile1 to local
-Copy directory /sync/newdir2 to remote
-Copy file /sync/newdir2/newfile2 to remote
-Trash local /sync/olddir1/trashfile1
-Trash remote /sync/trashfile2
+Copy file /sync/newfile1 to remote

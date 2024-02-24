@@ -163,6 +163,62 @@ set_up_test () {
     mkdir "$setup_dir/local/sync/newdir2"
     echo "local newfile2" > "$setup_dir/local/sync/newdir2/newfile2"
     
+  elif [[ $1 == "13" ]]; then
+    # nothing should happen since /sync/newdir is in the exclude file
+    set_last_sync
+    
+    mkdir "$setup_dir/local/sync/newdir"
+    echo "local newfile1" > "$setup_dir/local/sync/newdir/newfile1"
+    
+    echo "/sync/newdir" > "$setup_dir/local/.sync_exclude"
+  
+  elif [[ $1 == "14" ]]; then
+    # nothing should happen since /sync/newdir is in the exclude file
+    set_last_sync
+    
+    mkdir "$setup_dir/remote/sync/newdir"
+    echo "remote newfile1" > "$setup_dir/remote/sync/newdir/newfile1"
+    
+    echo "/sync/newdir" > "$setup_dir/remote/.sync_exclude"
+  
+  elif [[ $1 == "15" ]]; then
+    # nothing should happen since /sync/newdir and /sync/newfile1 are in the remote exclude file
+    # the remote exclude file should be copied over the local exclude file, thus excluding both
+    # newdir1 and newfile1
+    set_last_sync
+    
+    echo "remote newfile1" > "$setup_dir/remote/sync/newfile1"
+    mkdir "$setup_dir/remote/sync/newdir"
+    echo "remote newfile2" > "$setup_dir/remote/sync/newdir/newfile2"
+    
+    echo "/sync/newdir" > "$setup_dir/local/.sync_exclude"
+    sleep 0.01
+    echo "/sync/newdir" > "$setup_dir/remote/.sync_exclude"
+    echo "/sync/newfile1" >> "$setup_dir/remote/.sync_exclude"
+  
+  elif [[ $1 == "16" ]]; then
+    # nothing should happen since /sync/newdir and /sync/newfile1 are in the local exclude file
+    set_last_sync
+    
+    echo "local newfile1" > "$setup_dir/local/sync/newfile1"
+    mkdir "$setup_dir/local/sync/newdir"
+    echo "local newfile2" > "$setup_dir/local/sync/newdir/newfile2"
+    
+    echo "/sync/newdir" > "$setup_dir/remote/.sync_exclude"
+    sleep 0.01
+    echo "/sync/newdir" > "$setup_dir/local/.sync_exclude"
+    echo "/sync/newfile1" >> "$setup_dir/local/.sync_exclude"
+  
+  elif [[ $1 == "17" ]]; then
+    # nothing should happen since /sync/newdir and /sync/newfile1 are in the local exclude file
+    set_last_sync
+    
+    echo "local newfile1" > "$setup_dir/local/sync/newfile1"
+    mkdir "$setup_dir/local/sync/newdir"
+    echo "local newfile2" > "$setup_dir/local/sync/newdir/newfile2"
+    
+    echo "/sync/newdir" > "$setup_dir/remote/.sync_exclude"
+    
   else
     echo "No setup instructions for test $1. Exiting..."
     exit 1

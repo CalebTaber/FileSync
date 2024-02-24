@@ -6,8 +6,9 @@
 # $3 can be set to -v for verbose logging
 # $4 can be set to -t for running tests
 
-# If file $1/.sync_exclude exists, the directories listed in it will be excluded from being
+# If file $1/.sync_exclude exists, the paths listed in it will be excluded from being
 # synced. Useful for not copying libraries and system-specific files
+# Paths listed must START with a '/' but NOT END with '/'
 
 local_prefix="$1"
 remote_prefix="$2"
@@ -95,7 +96,7 @@ recursive_directory_sync () {
     local local_path="$local_prefix/$1/$file_name"
     local remote_path="$remote_prefix/$1/$file_name"
     
-    if [[ -e "$blacklist" ]] && [[ ! -z $(grep $(echo "/$1/$file_name" | sed 's/\/\/*/\//g') "$blacklist") ]]; then
+    if [[ -e "$blacklist" ]] && [[ ! -z $(grep -E "^$(echo "/$1/$file_name" | sed 's/\/\/*/\//g')$" "$blacklist") ]]; then
       continue
     fi
     
