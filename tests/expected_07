@@ -1,0 +1,3 @@
+Copy directory /sync/newdir to local
+Copy directory /sync/newdir/newdir2 to local
+Copy file /sync/newdir/newfile1 to local

@@ -1,0 +1,4 @@
+Copy directory /sync/olddir1 to remote
+Copy directory /sync/olddir1/newdir1 to remote
+Copy file /sync/olddir1/newfile1 to remote
+Trash local /sync/olddir1/oldfile1

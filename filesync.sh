@@ -6,20 +6,20 @@
 # $3 can be set to -v for verbose logging
 # $4 can be set to -t for running tests
 
-local_prefix="$1";
-remote_prefix="$2";
+local_prefix="$1"
+remote_prefix="$2"
 
-last_sync="$local_prefix/.last_sync";
+last_sync="$local_prefix/.last_sync"
 
-trash_path="$local_prefix/.sync_trash";
+trash_path="$local_prefix/.sync_trash"
 
 # Clear trash directory if exists
 if [[ -e $trash_path ]]; then
-    rm -r $trash_path;
+    rm -r $trash_path
 fi
-mkdir $trash_path;
-mkdir $trash_path/local;
-mkdir $trash_path/remote;
+mkdir $trash_path
+mkdir $trash_path/local
+mkdir $trash_path/remote
 
 
 # Check for verbose logging ($3)
@@ -178,7 +178,7 @@ fi
 # Set new last_sync
 echo $(date +%s) > $local_prefix/.last_sync;
 
-# Preserve timestamps wiht -p when copying last_sync to remote
+# Preserve timestamps with -p when copying last_sync to remote
 cp -p $local_prefix/.last_sync $remote_prefix/;
 
 
@@ -202,3 +202,6 @@ cp -p $local_prefix/.last_sync $remote_prefix/;
 #Have an option for initializing syncs on a machine
 #- Can just copy the last_sync_tstmp to that machine
 #- Or can copy all missing files from one machine to another (need to designate one as the source of truth)
+
+
+# Written by Caleb Taber in 2024

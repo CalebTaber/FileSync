@@ -1,0 +1,3 @@
+Copy directory /sync/newdir to remote
+Copy directory /sync/newdir/newdir2 to remote
+Copy file /sync/newdir/newfile1 to remote
