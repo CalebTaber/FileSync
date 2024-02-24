@@ -6,20 +6,34 @@
 # $3 can be set to -v for verbose logging
 # $4 can be set to -t for running tests
 
+# If file $1/.sync_exclude exists, the directories listed in it will be excluded from being
+# synced. Useful for not copying libraries and system-specific files
+
 local_prefix="$1"
 remote_prefix="$2"
 
 last_sync="$local_prefix/.last_sync"
+blacklist="$local_prefix/.sync_exclude"
+trash="$local_prefix/.sync_trash"
 
-trash_path="$local_prefix/.sync_trash"
-
-# Clear trash directory if exists
-if [[ -e $trash_path ]]; then
-    rm -r $trash_path
+# If blacklist exists only locally or remotely, copy it to both
+if [[ -e "$blacklist" ]] && [[ ! -e "$remote_prefix/.sync_exclude" ]]; then
+  cp "$blacklist" "$remote_prefix/"
+elif [[ -e "$remote_prefix/.sync_exclude" ]] && [[ ! -e "$blacklist" ]]; then
+  cp "$remote_prefix/.sync_exclude" "$local_prefix"
 fi
-mkdir $trash_path
-mkdir $trash_path/local
-mkdir $trash_path/remote
+
+if [[ -e "$blacklist" ]]; then
+  # Update the blacklist in case it was changed in either place
+  cp -u "$blacklist" "$remote_prefix/.sync_exclude"
+  cp -u "$remote_prefix/.sync_exclude" "$blacklist"
+fi
+# Clear trash directory if exists
+if [[ -e $trash ]]; then
+    rm -r "$trash"
+fi
+mkdir -p "$trash/local"
+mkdir -p "$trash/remote"
 
 
 # Check for verbose logging ($3)
@@ -57,13 +71,13 @@ trash_file () {
   local curr_dir=$(pwd)
   
   if [[ $3 == "0" ]]; then
-    mkdir -p "$trash_path/local/$1"
+    mkdir -p "$trash/local/$1"
     cd $local_prefix
-    mv "./$1/$2" "$trash_path/local/$1"
+    mv "./$1/$2" "$trash/local/$1"
   elif [[ $3 == "1" ]]; then
-    mkdir -p "$trash_path/remote/$1"
+    mkdir -p "$trash/remote/$1"
     cd $remote_prefix
-    mv "./$1/$2" "$trash_path/remote/$1"
+    mv "./$1/$2" "$trash/remote/$1"
   fi
   
   cd $curr_dir
@@ -74,13 +88,17 @@ recursive_directory_sync () {
   mapfile -t filenames < <( find "$local_prefix/$1" "$remote_prefix/$1" -mindepth 1 -maxdepth 1 -printf "%f\n" | sort | uniq )
   
   for file_name in ${filenames[@]}; do
-    if [[ "$file_name" == ".last_sync" ]] || [[ "$file_name" == ".sync_trash" ]]; then
+    if [[ "$file_name" == ".last_sync" ]] || [[ "$file_name" == ".sync_trash" ]] || [[ "$file_name" == ".sync_exclude" ]]; then
       continue
     fi
     
     local local_path="$local_prefix/$1/$file_name"
     local remote_path="$remote_prefix/$1/$file_name"
-
+    
+    if [[ -e "$blacklist" ]] && [[ ! -z $(grep $(echo "/$1/$file_name" | sed 's/\/\/*/\//g') "$blacklist") ]]; then
+      continue
+    fi
+    
     # If file exists locally and remotely
     if [[ -e $local_path ]] && [[ -e $remote_path ]]; then
     
@@ -115,7 +133,7 @@ recursive_directory_sync () {
           cp $local_path "$remote_prefix/$1/"
         elif [[ -d $local_path ]]; then
           log_extra_info "Copy directory $1/$file_name to remote"
-          mkdir $remote_path;
+          mkdir $remote_path
           recursive_directory_sync "$1/$file_name"
         else
           echo "Local file is non-regular: $local_path"
@@ -162,15 +180,15 @@ fi
 
 
 # Print out files trashed and remove permanently if user consents
-if [[ ! -z $(find "$trash_path" -mindepth 1 -print | grep -Eo "trash/(local|remote)/.*") ]]; then 
+if [[ ! -z $(find "$trash" -mindepth 1 -print | grep -Eo "trash/(local|remote)/.*") ]]; then 
   printf "\nFiles trashed:\n"
 
-  find "$trash_path" -mindepth 1 -print | grep -Eo "trash/(local|remote)/.*"
+  find "$trash" -mindepth 1 -print | grep -Eo "trash/(local|remote)/.*"
 
   echo ""
   read -p "Delete these permanently? [y/n] " delete
   if [[ $delete == "y" ]]; then
-    rm -r "$trash_path"
+    rm -r "$trash"
   fi
 fi
 

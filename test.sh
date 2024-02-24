@@ -14,7 +14,7 @@
 # Now you can run test.sh -t <testnum> OR test.sh (for all tests) and see the grading results
 
 user_home=$(realpath ~)
-setup_dir="$user_home/Desktop/filesync_test/";
+setup_dir="$user_home/Desktop/filesync_test/"
 
 expected_outputs="$user_home/Code/Bash/filesync/tests"
 
@@ -24,10 +24,10 @@ tests_passed=0
 
 set_last_sync () {
   # Set new last_sync
-  echo $(date +%s) > "$setup_dir/local/.last_sync";
+  echo $(date +%s) > "$setup_dir/local/.last_sync"
 
   # Preserve timestamps with -p when copying last_sync to remote
-  cp -p "$setup_dir/local/.last_sync" "$setup_dir/remote/";
+  cp -p "$setup_dir/local/.last_sync" "$setup_dir/remote/"
   
   # Sleep for a short time so no files have the same ctime as the last_sync
   sleep 0.005
