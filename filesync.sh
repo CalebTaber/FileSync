@@ -13,7 +13,14 @@
 local_prefix="$1"
 remote_prefix="$2"
 
+# Set last sync to be the older last_sync file between the two directories
+# This will ensure that the staler directory will always get the proper updates
+# if the fresher directory has more recently synced with a different directory
 last_sync="$local_prefix/.last_sync"
+if [[ "$remote_prefix/.last_sync" -nt "$last_sync" ]]; then
+  last_sync="$remote_prefix/.last_sync"
+fi
+
 blacklist="$local_prefix/.sync_exclude"
 trash="$local_prefix/.sync_trash"
 
@@ -102,6 +109,7 @@ recursive_directory_sync () {
     local local_path="$local_prefix/$1/$file_name"
     local remote_path="$remote_prefix/$1/$file_name"
     
+    # Check if the current file is in the blacklist (removing duplicate slashes first)
     if [[ -e "$blacklist" ]] && [[ ! -z $(grep -E "^$(echo "/$1/$file_name" | sed 's/\/\/*/\//g')$" "$blacklist") ]]; then
       continue
     fi
@@ -203,8 +211,8 @@ fi
 # Set new last_sync
 echo $(date +%s) > "$local_prefix/.last_sync"
 
-# Preserve timestamps with -p when copying last_sync to remote
-cp -p "$local_prefix/.last_sync" "$remote_prefix/"
+# Copy to remote
+cp "$local_prefix/.last_sync" "$remote_prefix/"
 
 
 # Case 1: File exists locally and remotely
