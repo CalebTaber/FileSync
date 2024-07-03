@@ -20,10 +20,12 @@ public class FileSynchronizer {
     private final Set<Path> excludedPaths;
     private final long lastSyncMillis;
     private final FileSyncRoot localRoot, remoteRoot;
+    private final boolean verbose;
 
     private enum fileSelection { FILES_ONLY, DIRECTORIES_ONLY }
 
-    public FileSynchronizer(Path localRootPath, Path remoteRootPath, String localHostname, String remoteHostname) {
+    public FileSynchronizer(Path localRootPath, Path remoteRootPath, String localHostname, String remoteHostname, boolean verbose) {
+        this.verbose = verbose;
         localRoot = new FileSyncRoot(localRootPath, remoteHostname);
         remoteRoot = new FileSyncRoot(remoteRootPath, localHostname);
 
@@ -65,18 +67,30 @@ public class FileSynchronizer {
     }
 
     private void copy(Path relativeFilepath, boolean fromLocal) {
-        final Path source = (fromLocal) ? localRoot.resolve(relativeFilepath) : remoteRoot.resolve(relativeFilepath);
-        final Path destination = (fromLocal) ? remoteRoot.resolve(relativeFilepath) : localRoot.resolve(relativeFilepath);
+        final Path sourcePathAbsolute = (fromLocal) ? localRoot.resolve(relativeFilepath) : remoteRoot.resolve(relativeFilepath);
+        final Path destPathAbsolute = (fromLocal) ? remoteRoot.resolve(relativeFilepath) : localRoot.resolve(relativeFilepath);
 
-        System.out.println("Copying '" + relativeFilepath + "' to " + ((fromLocal) ? "remote" : "local"));
-        FileTreeUtils.copy(source, destination);
+        if (verbose) System.out.println("Copying '" + relativeFilepath + "' to " + ((fromLocal) ? "remote" : "local"));
+        try {
+            if (sourcePathAbsolute.toFile().isDirectory()) Files.walkFileTree(sourcePathAbsolute, new FileCopier(sourcePathAbsolute, destPathAbsolute, true));
+            else Files.copy(sourcePathAbsolute, destPathAbsolute, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            System.out.println("ERROR: Copying '" + sourcePathAbsolute + "' to '" + destPathAbsolute + "' failed. Exiting...");
+            System.exit(1);
+        }
     }
 
-    private void delete(Path relativeFilePath, boolean fromLocal) {
-        final Path absoluteFilepath = (fromLocal) ? localRoot.resolve(relativeFilePath) : remoteRoot.resolve(relativeFilePath);
+    private void delete(Path relativePath, boolean fromLocal) {
+        final Path absolutePath = (fromLocal) ? localRoot.resolve(relativePath) : remoteRoot.resolve(relativePath);
 
-        System.out.println("Deleting '" + relativeFilePath + "' from " + ((fromLocal) ? "remote" : "local"));
-        FileTreeUtils.delete(absoluteFilepath);
+        if (verbose) System.out.println("Deleting '" + relativePath + "' from " + ((fromLocal) ? "remote" : "local"));
+        try {
+            if (absolutePath.toFile().isDirectory()) Files.walkFileTree(absolutePath, new FileDeleter(true));
+            else Files.delete(absolutePath);
+        } catch (IOException ioE) {
+            System.out.println("ERROR: Deleting '" + absolutePath + "' failed. Exiting...");
+            System.exit(1);
+        }
     }
 
     private long getCreateTime(Path absolutePath) {

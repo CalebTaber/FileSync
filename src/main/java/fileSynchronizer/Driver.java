@@ -24,7 +24,7 @@ public class Driver {
             System.out.println("filesync <local_root_path> <remote_root_path> <local_hostname> <remote_hostname>");
         }
         else {
-            FileSynchronizer sync = new FileSynchronizer(Path.of(args[0]), Path.of(args[1]), args[2], args[3]);
+            FileSynchronizer sync = new FileSynchronizer(Path.of(args[0]), Path.of(args[1]), args[2], args[3], true);
             sync.synchronizeFileTrees();
         }
     }
