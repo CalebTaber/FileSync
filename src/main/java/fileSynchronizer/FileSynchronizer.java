@@ -16,23 +16,23 @@ import java.util.stream.Collectors;
 public class FileSynchronizer {
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT);
-    private static Set<Path> excludedPaths;
+
+    private final Set<Path> excludedPaths;
+    private final long lastSyncMillis;
+    private final FileSyncRoot localRoot, remoteRoot;
 
     private enum fileSelection { FILES_ONLY, DIRECTORIES_ONLY }
 
-    private final long LAST_SYNC_MILLIS;
-    private final FileSyncRoot LOCAL_ROOT, REMOTE_ROOT;
-
     public FileSynchronizer(Path localRootPath, Path remoteRootPath, String localHostname, String remoteHostname) {
-        LOCAL_ROOT = new FileSyncRoot(localRootPath, localHostname);
-        REMOTE_ROOT = new FileSyncRoot(remoteRootPath, remoteHostname);
+        localRoot = new FileSyncRoot(localRootPath, remoteHostname);
+        remoteRoot = new FileSyncRoot(remoteRootPath, localHostname);
 
         // Get excluded paths from both roots
-        excludedPaths = LOCAL_ROOT.excludedPaths;
-        excludedPaths.addAll(REMOTE_ROOT.excludedPaths);
+        excludedPaths = localRoot.getExcludedPaths();
+        excludedPaths.addAll(remoteRoot.getExcludedPaths());
 
         // Get last sync time
-        LAST_SYNC_MILLIS = LOCAL_ROOT.LAST_SYNC_MILLIS;
+        lastSyncMillis = Math.max(localRoot.getLastSyncMillis(), remoteRoot.getLastSyncMillis());
     }
 
     public void synchronizeFileTrees() {
@@ -42,12 +42,12 @@ public class FileSynchronizer {
         // Resolve conflicts manually
         Scanner conflictResponses = new Scanner(System.in);
         for (Path conflict : conflicts) {
-            ZonedDateTime localModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(LOCAL_ROOT.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
-            ZonedDateTime remoteModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(REMOTE_ROOT.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
+            ZonedDateTime localModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(localRoot.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
+            ZonedDateTime remoteModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(remoteRoot.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
 
             System.out.println("\nConflict:");
-            System.out.println("\tLocal  '" + LOCAL_ROOT.resolve(conflict) + "' modified " + localModified.format(TIMESTAMP_FORMATTER));
-            System.out.println("\tRemote '" + REMOTE_ROOT.resolve(conflict) + "' modified " + remoteModified.format(TIMESTAMP_FORMATTER));
+            System.out.println("\tLocal  '" + localRoot.resolve(conflict) + "' modified " + localModified.format(TIMESTAMP_FORMATTER));
+            System.out.println("\tRemote '" + remoteRoot.resolve(conflict) + "' modified " + remoteModified.format(TIMESTAMP_FORMATTER));
             System.out.print("Take local changes, or remote? (l/r)");
             String decision = conflictResponses.nextLine();
             copy(conflict, decision.equals("l"));
@@ -55,25 +55,25 @@ public class FileSynchronizer {
         conflictResponses.close();
 
         // Export excluded paths to .sync_exclude
-        LOCAL_ROOT.writeExcludedPathsList(excludedPaths);
-        REMOTE_ROOT.writeExcludedPathsList(excludedPaths);
+        localRoot.writeExcludedPathsList(excludedPaths);
+        remoteRoot.writeExcludedPathsList(excludedPaths);
 
         // Set new last sync records
         long newSyncTimeMillis = System.currentTimeMillis();
-        LOCAL_ROOT.setLastSync(newSyncTimeMillis);
-        REMOTE_ROOT.setLastSync(newSyncTimeMillis);
+        localRoot.setLastSync(newSyncTimeMillis);
+        remoteRoot.setLastSync(newSyncTimeMillis);
     }
 
     private void copy(Path relativeFilepath, boolean fromLocal) {
-        final Path source = (fromLocal) ? LOCAL_ROOT.resolve(relativeFilepath) : REMOTE_ROOT.resolve(relativeFilepath);
-        final Path destination = (fromLocal) ? REMOTE_ROOT.resolve(relativeFilepath) : LOCAL_ROOT.resolve(relativeFilepath);
+        final Path source = (fromLocal) ? localRoot.resolve(relativeFilepath) : remoteRoot.resolve(relativeFilepath);
+        final Path destination = (fromLocal) ? remoteRoot.resolve(relativeFilepath) : localRoot.resolve(relativeFilepath);
 
         System.out.println("Copying '" + relativeFilepath + "' to " + ((fromLocal) ? "remote" : "local"));
         FileTreeUtils.copy(source, destination);
     }
 
     private void delete(Path relativeFilePath, boolean fromLocal) {
-        final Path absoluteFilepath = (fromLocal) ? LOCAL_ROOT.resolve(relativeFilePath) : REMOTE_ROOT.resolve(relativeFilePath);
+        final Path absoluteFilepath = (fromLocal) ? localRoot.resolve(relativeFilePath) : remoteRoot.resolve(relativeFilePath);
 
         System.out.println("Deleting '" + relativeFilePath + "' from " + ((fromLocal) ? "remote" : "local"));
         FileTreeUtils.delete(absoluteFilepath);
@@ -92,8 +92,8 @@ public class FileSynchronizer {
     }
 
     private Set<Path> syncFileTrees(Path relativePath) {
-        final File localFile = LOCAL_ROOT.resolve(relativePath).toFile();
-        final File remoteFile = REMOTE_ROOT.resolve(relativePath).toFile();
+        final File localFile = localRoot.resolve(relativePath).toFile();
+        final File remoteFile = remoteRoot.resolve(relativePath).toFile();
 
         final boolean localExists = localFile.exists();
         final boolean remoteExists = remoteFile.exists();
@@ -116,12 +116,12 @@ public class FileSynchronizer {
                 final long localModified = localFile.lastModified();
                 final long remoteModified = remoteFile.lastModified();
 
-                if (localModified > LAST_SYNC_MILLIS && remoteModified > LAST_SYNC_MILLIS) return Set.of(relativePath); // Case: both files modified since last sync. Conflict
-                else if (Math.max(localModified, remoteModified) > LAST_SYNC_MILLIS) copy(relativePath, localModified > LAST_SYNC_MILLIS); // Case: One and only one file has been modified since last sync. Copy it to opposite file tree
+                if (localModified > lastSyncMillis && remoteModified > lastSyncMillis) return Set.of(relativePath); // Case: both files modified since last sync. Conflict
+                else if (Math.max(localModified, remoteModified) > lastSyncMillis) copy(relativePath, localModified > lastSyncMillis); // Case: One and only one file has been modified since last sync. Copy it to opposite file tree
             }
         }
         else if (localExists || remoteExists) {
-            if (getCreateTime((localExists) ? localFile.toPath() : remoteFile.toPath()) > LAST_SYNC_MILLIS) copy(relativePath, localExists);
+            if (getCreateTime((localExists) ? localFile.toPath() : remoteFile.toPath()) > lastSyncMillis) copy(relativePath, localExists);
             else delete(relativePath, localExists);
         }
 

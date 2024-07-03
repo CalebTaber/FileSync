@@ -3,60 +3,80 @@ package fileSynchronizer;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
 public final class FileSyncRoot {
-    private final Path ROOT;
-    private final File SYNC_EXCLUDE, SYNC_LOG;
-    public final long LAST_SYNC_MILLIS;
-    public final String HOSTNAME;
-
-    public Set<Path> excludedPaths;
+    private final Path root;
+    private final File syncExclude, syncLog, syncTrash;
+    private final long lastSyncMillis;
+    private final String remoteNickname;
+    private final Set<Path> excludedPaths;
 
     public FileSyncRoot(Path root, String hostname) {
-        ROOT = root;
-        SYNC_EXCLUDE = root.resolve(".sync_exclude").toFile();
-        SYNC_LOG = root.resolve(".sync_log").toFile();
+        this.root = root;
+        syncExclude = root.resolve(".sync_exclude").toFile();
+        syncLog = root.resolve(".sync_log").toFile();
+        syncTrash = root.resolve(".sync_trash").toFile();
 
-        HOSTNAME = hostname;
-        LAST_SYNC_MILLIS = getLastSync();
+        try {
+            Files.createDirectory(syncTrash.toPath());
+        } catch (IOException ioE) {
+            System.out.println("Sync trash could not be created at '" + syncTrash.toPath() + "'. Exiting...");
+            System.exit(1);
+        }
+
+        remoteNickname = hostname;
+        lastSyncMillis = getLastSync();
 
         excludedPaths = readExcludedPathsList();
     }
 
+    public long getLastSyncMillis() {
+        return lastSyncMillis;
+    }
+
+    public Path resolve(Path p) {
+        return root.resolve(p);
+    }
+
+    public Set<Path> getExcludedPaths() {
+        return excludedPaths;
+    }
+
     public void writeExcludedPathsList(Set<Path> excludedPaths) {
         try {
-            SYNC_EXCLUDE.createNewFile();
+            syncExclude.createNewFile();
 
-            FileWriter exclusionWriter = new FileWriter(SYNC_EXCLUDE);
+            FileWriter exclusionWriter = new FileWriter(syncExclude);
             for (Path excluded : excludedPaths) {
                 exclusionWriter.write(excluded.toString());
             }
             exclusionWriter.close();
         } catch (IOException ioE) {
-            System.out.println("ERROR: Could not create file '" + SYNC_EXCLUDE.toPath() + "'. Exiting...");
+            System.out.println("ERROR: Could not create file '" + syncExclude.toPath() + "'. Exiting...");
             System.exit(1);
         }
     }
 
     public void setLastSync(long newLastSyncMillis) {
         List<String> syncRecords = new ArrayList<>();
-        syncRecords.add(HOSTNAME + "," + newLastSyncMillis);
+        syncRecords.add(remoteNickname + "," + newLastSyncMillis);
 
         try {
-            if (SYNC_LOG.createNewFile()) {
-                Scanner logReader = new Scanner(SYNC_LOG);
+            if (syncLog.createNewFile()) {
+                Scanner logReader = new Scanner(syncLog);
 
                 while (logReader.hasNext()) {
                     String hostNameAndLastSync = logReader.nextLine();
 
-                    if (!hostNameAndLastSync.startsWith(HOSTNAME + ",")) syncRecords.add(hostNameAndLastSync);
+                    if (!hostNameAndLastSync.startsWith(remoteNickname + ",")) syncRecords.add(hostNameAndLastSync);
                 }
                 logReader.close();
             }
 
-            FileWriter logWriter = new FileWriter(SYNC_LOG);
+            FileWriter logWriter = new FileWriter(syncLog);
             for (String syncRecord : syncRecords) {
                 logWriter.write(syncRecord);
             }
@@ -67,23 +87,19 @@ public final class FileSyncRoot {
         }
     }
 
-    public Path resolve(Path p) {
-        return ROOT.resolve(p);
-    }
-
-    public Set<Path> readExcludedPathsList() {
+    private Set<Path> readExcludedPathsList() {
         Set<Path> excludedPaths = new HashSet<>();
 
         try {
-            if (SYNC_EXCLUDE.createNewFile()) return excludedPaths;
+            if (syncExclude.createNewFile()) return excludedPaths;
 
-            Scanner exclusionReader = new Scanner(SYNC_EXCLUDE);
+            Scanner exclusionReader = new Scanner(syncExclude);
             while (exclusionReader.hasNext()) {
                 excludedPaths.add(Path.of(exclusionReader.nextLine()));
             }
             exclusionReader.close();
         } catch (IOException ioE) {
-            System.out.println("ERROR: Could not read file '" + SYNC_EXCLUDE.toPath() + "'. Exiting...");
+            System.out.println("ERROR: Could not read file '" + syncExclude.toPath() + "'. Exiting...");
             System.exit(1);
         }
 
@@ -92,10 +108,10 @@ public final class FileSyncRoot {
 
     private long getLastSync() {
         try {
-            Scanner logReader = new Scanner(SYNC_LOG);
+            Scanner logReader = new Scanner(syncLog);
             while (logReader.hasNext()) {
                 String[] hostNameAndLastSync = logReader.nextLine().split(",");
-                if (hostNameAndLastSync[0].equals(HOSTNAME)) return Long.parseLong(hostNameAndLastSync[1]);
+                if (hostNameAndLastSync[0].equals(remoteNickname)) return Long.parseLong(hostNameAndLastSync[1]);
             }
             logReader.close();
         } catch (IOException ioE) {

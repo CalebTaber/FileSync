@@ -16,7 +16,7 @@ public final class FileTreeUtils {
 
                 @Override
                 public FileVisitResult visitFile(Path path, BasicFileAttributes basicFileAttributes) throws IOException {
-//                    Files.delete(path);
+                    Files.delete(path);
                     System.out.println("DELETE: " + path);
                     return FileVisitResult.CONTINUE;
                 }
@@ -30,7 +30,7 @@ public final class FileTreeUtils {
 
                 @Override
                 public FileVisitResult postVisitDirectory(Path path, IOException e) throws IOException {
-//                    Files.delete(path);
+                    Files.delete(path);
                     System.out.println("DELETE: " + path);
                     return FileVisitResult.CONTINUE;
                 }
@@ -43,14 +43,14 @@ public final class FileTreeUtils {
 
     public static void delete(Path absolutePath) {
         if (absolutePath.toFile().isDirectory()) recursivelyDeleteDirectory(absolutePath);
-//        else {
-//            try {
-//                Files.delete(absolutePath);
-//            } catch (IOException ioE) {
-//                System.out.println("ERROR: Deleting directory '" + absolutePath + "' failed. Exiting...");
-//                System.exit(1);
-//            }
-//        }
+        else {
+            try {
+                Files.delete(absolutePath);
+            } catch (IOException ioE) {
+                System.out.println("ERROR: Deleting directory '" + absolutePath + "' failed. Exiting...");
+                System.exit(1);
+            }
+        }
     }
 
     public static void recursivelyCopyDirectory(Path absoluteDirSource, Path absoluteDirDestination) {
@@ -58,14 +58,14 @@ public final class FileTreeUtils {
             Files.walkFileTree(absoluteDirSource, new FileVisitor<>() {
                 @Override
                 public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes basicFileAttributes) throws IOException {
-//                    Files.copy(path, absoluteDirDestination.resolve(absoluteDirSource.relativize(path)), StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(path, absoluteDirDestination.resolve(absoluteDirSource.relativize(path)), StandardCopyOption.REPLACE_EXISTING);
                     System.out.println("COPY: " + path + " -> " + absoluteDirDestination.resolve(absoluteDirSource.relativize(path)));
                     return FileVisitResult.CONTINUE;
                 }
 
                 @Override
                 public FileVisitResult visitFile(Path path, BasicFileAttributes basicFileAttributes) throws IOException {
-//                    Files.copy(path, absoluteDirDestination.resolve(absoluteDirSource.relativize(path)), StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(path, absoluteDirDestination.resolve(absoluteDirSource.relativize(path)), StandardCopyOption.REPLACE_EXISTING);
                     System.out.println("COPY: " + path + " -> " + absoluteDirDestination.resolve(absoluteDirSource.relativize(path)));
                     return FileVisitResult.CONTINUE;
                 }
@@ -90,14 +90,14 @@ public final class FileTreeUtils {
 
     public static void copy(Path absouluteSourcePath, Path absoluteDestinationPath) {
         if (absouluteSourcePath.toFile().isDirectory()) recursivelyCopyDirectory(absouluteSourcePath, absoluteDestinationPath);
-//        else {
-//            try {
-//                Files.copy(absouluteSourcePath, absoluteDestinationPath, StandardCopyOption.REPLACE_EXISTING);
-//            } catch (IOException ioE) {
-//                System.out.println("ERROR: Copying file '" + absouluteSourcePath + "' to '" + absoluteDestinationPath + "' failed. Exiting...");
-//                System.exit(1);
-//            }
-//        }
+        else {
+            try {
+                Files.copy(absouluteSourcePath, absoluteDestinationPath, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException ioE) {
+                System.out.println("ERROR: Copying file '" + absouluteSourcePath + "' to '" + absoluteDestinationPath + "' failed. Exiting...");
+                System.exit(1);
+            }
+        }
     }
 
 }
