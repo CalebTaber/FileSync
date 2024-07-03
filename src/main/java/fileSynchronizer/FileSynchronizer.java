@@ -24,7 +24,7 @@ public class FileSynchronizer {
 
     private enum fileSelection { FILES_ONLY, DIRECTORIES_ONLY }
 
-    public FileSynchronizer(Path localRootPath, Path remoteRootPath, String localHostname, String remoteHostname, boolean verbose) {
+    public FileSynchronizer(String localRootPath, String remoteRootPath, String localHostname, String remoteHostname, boolean verbose) {
         this.verbose = verbose;
         localRoot = new FileSyncRoot(localRootPath, remoteHostname);
         remoteRoot = new FileSyncRoot(remoteRootPath, localHostname);
@@ -93,7 +93,7 @@ public class FileSynchronizer {
         }
     }
 
-    private long getCreateTime(Path absolutePath) {
+    private long getFileCreationTime(Path absolutePath) {
         try {
             final BasicFileAttributes fileAttrs = Files.readAttributes(absolutePath, BasicFileAttributes.class);
             return fileAttrs.creationTime().toMillis();
@@ -135,7 +135,7 @@ public class FileSynchronizer {
             }
         }
         else if (localExists || remoteExists) {
-            if (getCreateTime((localExists) ? localFile.toPath() : remoteFile.toPath()) > lastSyncMillis) copy(relativePath, localExists);
+            if (getFileCreationTime((localExists) ? localFile.toPath() : remoteFile.toPath()) > lastSyncMillis) copy(relativePath, localExists);
             else delete(relativePath, localExists);
         }
 
@@ -143,11 +143,7 @@ public class FileSynchronizer {
     }
 
     private boolean isExcludedPath(Path candidate) {
-        for (Path excludedEnding : excludedPaths) {
-            if (candidate.endsWith(excludedEnding)) return true;
-        }
-
-        return false;
+        return excludedPaths.contains(candidate);
     }
 
     private Set<Path> uniqueNonExcludedChildNames(File localDir, File remoteDir, fileSelection fileTypeToList) {

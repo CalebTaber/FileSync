@@ -9,25 +9,17 @@ import java.util.*;
 
 public final class FileSyncRoot {
     private final Path root;
-    private final File syncExclude, syncLog, syncTrash;
+    private final File syncExclude, syncLog;
     private final long lastSyncMillis;
     private final String remoteNickname;
     private final Set<Path> excludedPaths;
 
-    public FileSyncRoot(Path root, String hostname) {
-        this.root = root;
+    public FileSyncRoot(String rootPath, String remoteNickname) {
+        root = Path.of(rootPath);
         syncExclude = root.resolve(".sync_exclude").toFile();
         syncLog = root.resolve(".sync_log").toFile();
-        syncTrash = root.resolve(".sync_trash").toFile();
 
-        try {
-            Files.createDirectory(syncTrash.toPath());
-        } catch (IOException ioE) {
-            System.out.println("Sync trash could not be created at '" + syncTrash.toPath() + "'. Exiting...");
-            System.exit(1);
-        }
-
-        remoteNickname = hostname;
+        this.remoteNickname = remoteNickname;
         lastSyncMillis = getLastSync();
 
         excludedPaths = readExcludedPathsList();
