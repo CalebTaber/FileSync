@@ -23,7 +23,7 @@ Driver.java is the entry point of the FileSync program. After building, run a fi
 Example: `java Driver /home/user/Documents /mnt/laptop/home/user/Documents desktop laptop`  
 
 Arguments:  
-`directory1-absolute-path` is the absolute path to the first directory. There is no enforced ordering of directory1 and directory2, but do make sure the directory nicknames are always associated with the same directory path  
+`directory1-absolute-path` is the absolute path to the first directory. There is no enforced ordering of directory1 and directory2, but do make sure the directory nicknames are always associated with the same directory paths  
 `directory2-absolute-path` is the absolute path to the second directory  
 `directory1-nickname` is the nickname of directory 1  
 `directory2-nickname` is the nickname of directory 2  

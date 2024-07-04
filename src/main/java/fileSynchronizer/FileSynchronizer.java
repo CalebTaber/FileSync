@@ -51,6 +51,7 @@ public class FileSynchronizer {
             System.out.println("\tLocal  '" + localRoot.resolve(conflict) + "' modified " + localModified.format(TIMESTAMP_FORMATTER));
             System.out.println("\tRemote '" + remoteRoot.resolve(conflict) + "' modified " + remoteModified.format(TIMESTAMP_FORMATTER));
             System.out.print("Take local changes, or remote? (l/r)");
+            conflictResponses.hasNextLine();
             String decision = conflictResponses.nextLine();
             copy(conflict, decision.equals("l"));
         }
@@ -148,6 +149,7 @@ public class FileSynchronizer {
 
     private Set<Path> uniqueNonExcludedChildNames(File localDir, File remoteDir, fileSelection fileTypeToList) {
         Set<Path> uniquePaths = new HashSet<>();
+
         uniquePaths.addAll(Arrays.stream(remoteDir.listFiles(f -> (fileTypeToList == fileSelection.FILES_ONLY) ? f.isFile() : f.isDirectory())).map(File::toPath).collect(Collectors.toSet()));
         uniquePaths.addAll(Arrays.stream(localDir.listFiles(f -> (fileTypeToList == fileSelection.FILES_ONLY) ? f.isFile() : f.isDirectory())).map(File::toPath).collect(Collectors.toSet()));
 

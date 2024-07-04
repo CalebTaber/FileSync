@@ -17,7 +17,7 @@ public class FileDeleter extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult visitFile(Path path, BasicFileAttributes basicFileAttributes) throws IOException {
-        Files.delete(path);
+//        Files.delete(path);
         if (verbose) System.out.println("DELETE: " + path);
         return FileVisitResult.CONTINUE;
     }
@@ -31,7 +31,7 @@ public class FileDeleter extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult postVisitDirectory(Path path, IOException e) throws IOException {
-        Files.delete(path);
+//        Files.delete(path);
         if (verbose) System.out.println("DELETE: " + path);
         return FileVisitResult.CONTINUE;
     }
