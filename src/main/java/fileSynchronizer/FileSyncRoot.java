@@ -8,7 +8,7 @@ import java.nio.file.Path;
 import java.util.*;
 
 public final class FileSyncRoot {
-    private final Path root;
+    private final Path root, syncTrash;
     private final File syncExclude, syncLog;
     private final long lastSyncMillis;
     private final String remoteNickname;
@@ -16,13 +16,26 @@ public final class FileSyncRoot {
 
     public FileSyncRoot(String rootPath, String remoteNickname) {
         root = Path.of(rootPath);
+
         syncExclude = root.resolve(".sync_exclude").toFile();
         syncLog = root.resolve(".sync_log").toFile();
+        syncTrash = root.resolve(".sync_trash");
+
+        try {
+            if (syncTrash.toFile().exists()) {
+                // Delete any pre-existing trashed files before creating the directory again
+                Files.walkFileTree(syncTrash, new FileDeleter(false));
+            }
+            Files.createDirectory(syncTrash);
+        } catch (IOException ioE) {}
 
         this.remoteNickname = remoteNickname;
         lastSyncMillis = getLastSync();
 
         excludedPaths = readExcludedPathsList();
+        excludedPaths.add(Path.of(".sync_exclude"));
+        excludedPaths.add(Path.of(".sync_log"));
+        excludedPaths.add(Path.of(".sync_trash"));
     }
 
     public long getLastSyncMillis() {
@@ -33,8 +46,16 @@ public final class FileSyncRoot {
         return root.resolve(p);
     }
 
+    public Path getSyncTrash() {
+        return syncTrash;
+    }
+
     public Set<Path> getExcludedPaths() {
         return excludedPaths;
+    }
+
+    public String getRemoteNickname() {
+        return remoteNickname;
     }
 
     public void writeExcludedPathsList(Set<Path> excludedPaths) {
@@ -44,6 +65,7 @@ public final class FileSyncRoot {
             FileWriter exclusionWriter = new FileWriter(syncExclude);
             for (Path excluded : excludedPaths) {
                 exclusionWriter.write(excluded.toString());
+                exclusionWriter.write("\n");
             }
             exclusionWriter.close();
         } catch (IOException ioE) {

@@ -9,6 +9,8 @@ import java.util.Scanner;
 
 public class Driver {
 
+    public static final Scanner USER_INPUT = new Scanner(System.in);
+
     /**
      * args[0] = absolute path to directory 1
      * args[1] = absolute path to directory 2
@@ -16,36 +18,27 @@ public class Driver {
      * args[3] = remote hostname
      */
     public static void main(String[] args) {
-        // Do filesync according to logic in bash script
-        // Use .gitignore files to avoid libraries and untracked files
-        // Ship with standard .sync_exclude list
-
         int numArgs = args.length;
         boolean localDirExists = numArgs > 1 && directoryExists(args[0]);
         boolean remoteDirExists = numArgs > 2 && directoryExists(args[1]);
 
         String[] newArgs = Arrays.copyOf(args, 4);
-        Scanner newArgsReader = new Scanner(System.in);
         while (numArgs != 4 || !localDirExists || !remoteDirExists) {
             if (numArgs != 4) {
                 System.out.println("Too " + ((numArgs < 4) ? "few" : "many") + " arguments. Usage:");
                 System.out.println("filesync <directory1-absolute-path> <directory2-absolute-path> <directory1-nickname> <directory2-nickname>");
 
                 System.out.print("Absolute path to directory 1: ");
-                newArgsReader.hasNextLine();
-                newArgs[0] = newArgsReader.nextLine();
+                newArgs[0] = USER_INPUT.nextLine();
 
                 System.out.print("Absolute path to directory 2: ");
-                newArgsReader.hasNextLine();
-                newArgs[1] = newArgsReader.nextLine();
+                newArgs[1] = USER_INPUT.nextLine();
 
                 System.out.print("Nickname for directory 1: ");
-                newArgsReader.hasNextLine();
-                newArgs[2] = newArgsReader.nextLine();
+                newArgs[2] = USER_INPUT.nextLine();
 
                 System.out.print("Nickname for directory 2: ");
-                newArgsReader.hasNextLine();
-                newArgs[3] = newArgsReader.nextLine();
+                newArgs[3] = USER_INPUT.nextLine();
 
                 localDirExists = directoryExists(newArgs[0]);
                 remoteDirExists = directoryExists(newArgs[1]);
@@ -59,8 +52,7 @@ public class Driver {
 
                 System.out.println("Directory '" + nonexistentDirectory + "' does not exist. Create it now? (y/n)");
                 do {
-                    newArgsReader.hasNextLine();
-                    decision = newArgsReader.nextLine();
+                    decision = USER_INPUT.nextLine();
                     responseNotRecognized = decision.equalsIgnoreCase("y") && decision.equalsIgnoreCase("n");
 
                     if (responseNotRecognized) System.out.println("Response '" + decision + "' not recognized. Please enter 'y' or 'n'");
@@ -81,13 +73,14 @@ public class Driver {
                 }
             }
         }
-        newArgsReader.close();
 
         FileSynchronizer synchronizer = new FileSynchronizer(newArgs[0], newArgs[1], newArgs[2], newArgs[3], true);
         synchronizer.synchronizeFileTrees();
+
+        USER_INPUT.close();
     }
 
-    public static boolean directoryExists(String path) {
+    private static boolean directoryExists(String path) {
         File directory = Path.of(path).toFile();
         return directory.exists() && directory.isDirectory();
     }

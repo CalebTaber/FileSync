@@ -15,21 +15,18 @@ import java.util.stream.Collectors;
 
 public class FileSynchronizer {
 
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT);
-
+    private final DateTimeFormatter timestampFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT);
     private final Set<Path> excludedPaths;
     private final long lastSyncMillis;
     private final FileSyncRoot localRoot, remoteRoot;
     private final boolean verbose;
-
-    private enum fileSelection { FILES_ONLY, DIRECTORIES_ONLY }
 
     public FileSynchronizer(String localRootPath, String remoteRootPath, String localHostname, String remoteHostname, boolean verbose) {
         this.verbose = verbose;
         localRoot = new FileSyncRoot(localRootPath, remoteHostname);
         remoteRoot = new FileSyncRoot(remoteRootPath, localHostname);
 
-        // Get excluded paths from both roots
+        // Merge excluded paths from both roots
         excludedPaths = localRoot.getExcludedPaths();
         excludedPaths.addAll(remoteRoot.getExcludedPaths());
 
@@ -38,24 +35,42 @@ public class FileSynchronizer {
     }
 
     public void synchronizeFileTrees() {
-        // Compare file trees in a breadth-first fashion
+        // Compare file trees in a breadth-first fashion and collect paths of conflicting files
         Set<Path> conflicts = syncFileTrees(Path.of(""));
 
         // Resolve conflicts manually
-        Scanner conflictResponses = new Scanner(System.in);
         for (Path conflict : conflicts) {
             ZonedDateTime localModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(localRoot.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
             ZonedDateTime remoteModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(remoteRoot.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
 
             System.out.println("\nConflict:");
-            System.out.println("\tLocal  '" + localRoot.resolve(conflict) + "' modified " + localModified.format(TIMESTAMP_FORMATTER));
-            System.out.println("\tRemote '" + remoteRoot.resolve(conflict) + "' modified " + remoteModified.format(TIMESTAMP_FORMATTER));
-            System.out.print("Take local changes, or remote? (l/r)");
-            conflictResponses.hasNextLine();
-            String decision = conflictResponses.nextLine();
-            copy(conflict, decision.equals("l"));
+            System.out.println("\tLocal  '" + localRoot.resolve(conflict) + "' modified " + localModified.format(timestampFormatter));
+            System.out.println("\tRemote '" + remoteRoot.resolve(conflict) + "' modified " + remoteModified.format(timestampFormatter));
+            System.out.print("Take local changes, or remote? (l/r): ");
+            String decision = Driver.USER_INPUT.nextLine();
+
+            trashOldAndCopyNewOver(conflict, decision.equals("l"));
         }
-        conflictResponses.close();
+
+        // Print all trashed file names and ask user if they want to delete them or not
+        if (localRoot.getSyncTrash().toFile().list().length != 0 || remoteRoot.getSyncTrash().toFile().list().length != 0) {
+            System.out.println("\nAll trashed files:");
+
+            try {
+                Files.walkFileTree(localRoot.getSyncTrash(), new FileNamePrinter(localRoot.getSyncTrash(), remoteRoot.getRemoteNickname() + ": "));
+                Files.walkFileTree(remoteRoot.getSyncTrash(), new FileNamePrinter(remoteRoot.getSyncTrash(), localRoot.getRemoteNickname() + ": "));
+            } catch (IOException ioE) {
+                System.out.println("Could not print all trashed file names");
+            }
+
+            System.out.print("Delete all trashed files? (y/n): ");
+            String deleteDecision = Driver.USER_INPUT.nextLine();
+
+            if (deleteDecision.equalsIgnoreCase("y")) {
+                deleteFile(localRoot.getSyncTrash());
+                deleteFile(remoteRoot.getSyncTrash());
+            } else System.out.println("No trashed files will be deleted");
+        }
 
         // Export excluded paths to .sync_exclude
         localRoot.writeExcludedPathsList(excludedPaths);
@@ -67,29 +82,46 @@ public class FileSynchronizer {
         remoteRoot.setLastSync(newSyncTimeMillis);
     }
 
-    private void copy(Path relativeFilepath, boolean fromLocal) {
-        final Path sourcePathAbsolute = (fromLocal) ? localRoot.resolve(relativeFilepath) : remoteRoot.resolve(relativeFilepath);
-        final Path destPathAbsolute = (fromLocal) ? remoteRoot.resolve(relativeFilepath) : localRoot.resolve(relativeFilepath);
+    private void trashOldAndCopyNewOver(Path relativeFilepath, boolean fromLocal) {
+        Path source = ((fromLocal) ? localRoot : remoteRoot).resolve(relativeFilepath);
+        Path destination = ((fromLocal) ? remoteRoot : localRoot).resolve(relativeFilepath);
+        Path trash = ((fromLocal) ? remoteRoot : localRoot).getSyncTrash();
 
-        if (verbose) System.out.println("Copying '" + relativeFilepath + "' to " + ((fromLocal) ? "remote" : "local"));
+        copyFile(destination, trash.resolve(relativeFilepath));
+        copyFile(source, destination);
+    }
+
+    private void trashOldAndDelete(Path relativeFilepath, boolean trashLocalFile) {
+        Path absolute = ((trashLocalFile) ? localRoot : remoteRoot).resolve(relativeFilepath);
+        Path trash = ((trashLocalFile) ? localRoot : remoteRoot).getSyncTrash();
+
+        copyFile(absolute, trash.resolve(relativeFilepath));
+        deleteFile(absolute);
+    }
+
+    private void copyFile(Path source, Path destination) {
         try {
-            if (sourcePathAbsolute.toFile().isDirectory()) Files.walkFileTree(sourcePathAbsolute, new FileCopier(sourcePathAbsolute, destPathAbsolute, true));
-            else Files.copy(sourcePathAbsolute, destPathAbsolute, StandardCopyOption.REPLACE_EXISTING);
+            if (source.toFile().isDirectory()) Files.walkFileTree(source, new FileCopier(source, destination, verbose));
+            else {
+                if (verbose) System.out.println("Copying '" + source + "' to " + destination);
+                Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
-            System.out.println("ERROR: Copying '" + sourcePathAbsolute + "' to '" + destPathAbsolute + "' failed. Exiting...");
+            System.out.println("ERROR: Copying '" + source + "' to '" + destination + "' failed. Exiting...");
+            e.printStackTrace();
             System.exit(1);
         }
     }
 
-    private void delete(Path relativePath, boolean fromLocal) {
-        final Path absolutePath = (fromLocal) ? localRoot.resolve(relativePath) : remoteRoot.resolve(relativePath);
-
-        if (verbose) System.out.println("Deleting '" + relativePath + "' from " + ((fromLocal) ? "remote" : "local"));
+    private void deleteFile(Path filepath) {
         try {
-            if (absolutePath.toFile().isDirectory()) Files.walkFileTree(absolutePath, new FileDeleter(true));
-            else Files.delete(absolutePath);
+            if (filepath.toFile().isDirectory()) Files.walkFileTree(filepath, new FileDeleter(verbose));
+            else {
+                if (verbose) System.out.println("Deleting '" + filepath + "'");
+                Files.delete(filepath);
+            }
         } catch (IOException ioE) {
-            System.out.println("ERROR: Deleting '" + absolutePath + "' failed. Exiting...");
+            System.out.println("ERROR: Deleting '" + filepath + "' failed. Exiting...");
             System.exit(1);
         }
     }
@@ -117,14 +149,8 @@ public class FileSynchronizer {
 
         if (localExists && remoteExists) {
             if (localFile.isDirectory() && remoteFile.isDirectory()) {
-                // Sync child files first
-                for (Path filename : uniqueNonExcludedChildNames(localFile, remoteFile, fileSelection.FILES_ONLY)) {
+                for (Path filename : uniqueNonExcludedChildNames(localFile, remoteFile)) {
                     conflicts.addAll(syncFileTrees(relativePath.resolve(filename)));
-                }
-
-                // Then recursively sync child directories
-                for (Path dirname : uniqueNonExcludedChildNames(localFile, remoteFile, fileSelection.DIRECTORIES_ONLY)) {
-                    conflicts.addAll(syncFileTrees(relativePath.resolve(dirname)));
                 }
             }
             else if (localFile.isFile() && remoteFile.isFile()) {
@@ -132,26 +158,32 @@ public class FileSynchronizer {
                 final long remoteModified = remoteFile.lastModified();
 
                 if (localModified > lastSyncMillis && remoteModified > lastSyncMillis) return Set.of(relativePath); // Case: both files modified since last sync. Conflict
-                else if (Math.max(localModified, remoteModified) > lastSyncMillis) copy(relativePath, localModified > lastSyncMillis); // Case: One and only one file has been modified since last sync. Copy it to opposite file tree
+                else if (Math.max(localModified, remoteModified) > lastSyncMillis) trashOldAndCopyNewOver(relativePath, localModified > lastSyncMillis);
             }
         }
         else if (localExists || remoteExists) {
-            if (getFileCreationTime((localExists) ? localFile.toPath() : remoteFile.toPath()) > lastSyncMillis) copy(relativePath, localExists);
-            else delete(relativePath, localExists);
+            if (getFileCreationTime((localExists) ? localFile.toPath() : remoteFile.toPath()) > lastSyncMillis) {
+                copyFile(((localExists) ? localRoot : remoteRoot).resolve(relativePath), ((localExists) ? remoteRoot : localRoot).resolve(relativePath));
+            }
+            else trashOldAndDelete(relativePath, localExists);
         }
 
         return conflicts;
     }
 
     private boolean isExcludedPath(Path candidate) {
-        return excludedPaths.contains(candidate);
+        for (Path excluded : excludedPaths) {
+            if (candidate.endsWith(excluded)) return true;
+        }
+
+        return false;
     }
 
-    private Set<Path> uniqueNonExcludedChildNames(File localDir, File remoteDir, fileSelection fileTypeToList) {
+    private Set<Path> uniqueNonExcludedChildNames(File localDir, File remoteDir) {
         Set<Path> uniquePaths = new HashSet<>();
 
-        uniquePaths.addAll(Arrays.stream(remoteDir.listFiles(f -> (fileTypeToList == fileSelection.FILES_ONLY) ? f.isFile() : f.isDirectory())).map(File::toPath).collect(Collectors.toSet()));
-        uniquePaths.addAll(Arrays.stream(localDir.listFiles(f -> (fileTypeToList == fileSelection.FILES_ONLY) ? f.isFile() : f.isDirectory())).map(File::toPath).collect(Collectors.toSet()));
+        uniquePaths.addAll(Arrays.stream(localDir.listFiles()).map(File::toPath).collect(Collectors.toSet()));
+        uniquePaths.addAll(Arrays.stream(remoteDir.listFiles()).map(File::toPath).collect(Collectors.toSet()));
 
         return uniquePaths.stream().filter(p -> !isExcludedPath(p)).map(Path::getFileName).collect(Collectors.toSet());
     }

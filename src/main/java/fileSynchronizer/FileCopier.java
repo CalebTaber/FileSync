@@ -17,14 +17,14 @@ public class FileCopier extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes basicFileAttributes) throws IOException {
-//        Files.copy(path, destinationDirAbsolute.resolve(sourceDirAbsolute.relativize(path)), StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(path, destinationDirAbsolute.resolve(sourceDirAbsolute.relativize(path)), StandardCopyOption.REPLACE_EXISTING);
         if (verbose) System.out.println("COPY: " + path + " -> " + destinationDirAbsolute.resolve(sourceDirAbsolute.relativize(path)));
         return FileVisitResult.CONTINUE;
     }
 
     @Override
     public FileVisitResult visitFile(Path path, BasicFileAttributes basicFileAttributes) throws IOException {
-//        Files.copy(path, destinationDirAbsolute.resolve(sourceDirAbsolute.relativize(path)), StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(path, destinationDirAbsolute.resolve(sourceDirAbsolute.relativize(path)), StandardCopyOption.REPLACE_EXISTING);
         if (verbose) System.out.println("COPY: " + path + " -> " + destinationDirAbsolute.resolve(sourceDirAbsolute.relativize(path)));
         return FileVisitResult.CONTINUE;
     }
