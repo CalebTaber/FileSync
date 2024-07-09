@@ -2,3 +2,4 @@ target/
 .idea
 Notes
 dev
+deployToDev.sh

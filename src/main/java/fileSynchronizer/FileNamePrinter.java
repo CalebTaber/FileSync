@@ -6,8 +6,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 public class FileNamePrinter extends SimpleFileVisitor<Path> {
 
-    private Path root;
-    private String prefix;
+    private final Path root;
+    private final String prefix;
 
     public FileNamePrinter(Path root, String prefix) {
         this.root = root;

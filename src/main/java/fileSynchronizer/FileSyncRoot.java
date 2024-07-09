@@ -11,24 +11,20 @@ public final class FileSyncRoot {
     private final Path root, syncTrash;
     private final File syncExclude, syncLog;
     private final long lastSyncMillis;
-    private final String remoteNickname;
+    private final String nickname, remoteNickname;
     private final Set<Path> excludedPaths;
+    private final boolean verbose;
 
-    public FileSyncRoot(String rootPath, String remoteNickname) {
+    public FileSyncRoot(String rootPath, String nickname, String remoteNickname, boolean verbose) {
         root = Path.of(rootPath);
+
+        this.verbose = verbose;
 
         syncExclude = root.resolve(".sync_exclude").toFile();
         syncLog = root.resolve(".sync_log").toFile();
         syncTrash = root.resolve(".sync_trash");
 
-        try {
-            if (syncTrash.toFile().exists()) {
-                // Delete any pre-existing trashed files before creating the directory again
-                Files.walkFileTree(syncTrash, new FileDeleter(false));
-            }
-            Files.createDirectory(syncTrash);
-        } catch (IOException ioE) {}
-
+        this.nickname = nickname;
         this.remoteNickname = remoteNickname;
         lastSyncMillis = getLastSync();
 
@@ -36,10 +32,17 @@ public final class FileSyncRoot {
         excludedPaths.add(Path.of(".sync_exclude"));
         excludedPaths.add(Path.of(".sync_log"));
         excludedPaths.add(Path.of(".sync_trash"));
+
+        // Clear any old trashed files before starting new sync
+        clearTrash();
     }
 
     public long getLastSyncMillis() {
         return lastSyncMillis;
+    }
+
+    public Path getRoot() {
+        return root;
     }
 
     public Path resolve(Path p) {
@@ -54,8 +57,8 @@ public final class FileSyncRoot {
         return excludedPaths;
     }
 
-    public String getRemoteNickname() {
-        return remoteNickname;
+    public String getNickname() {
+        return nickname;
     }
 
     public void writeExcludedPathsList(Set<Path> excludedPaths) {
@@ -93,11 +96,54 @@ public final class FileSyncRoot {
             FileWriter logWriter = new FileWriter(syncLog);
             for (String syncRecord : syncRecords) {
                 logWriter.write(syncRecord);
+                logWriter.write("\n");
             }
             logWriter.close();
 
         } catch (IOException ioE) {
             System.out.println();
+        }
+    }
+
+    public void trash(Path relativePath) {
+        Path absolutePath = root.resolve(relativePath);
+        if (!absolutePath.toFile().exists()) return;
+
+        try {
+            Files.walkFileTree(absolutePath, new FileMover(absolutePath, syncTrash.resolve(absolutePath.getFileName()), verbose));
+        } catch (IOException ioE) {
+            System.out.println("ERROR: Could not trash all the files at '" + absolutePath + "'. Exiting...");
+            System.exit(1);
+        }
+    }
+
+    public void copyFromRemote(Path relativePath, Path remoteRoot) {
+        trash(relativePath);
+
+        try {
+            Files.walkFileTree(remoteRoot.resolve(relativePath), new FileCopier(remoteRoot.resolve(relativePath), root.resolve(relativePath), verbose));
+        } catch (IOException ioE) {
+            System.out.println("ERROR: Could not trash all the files at '" + remoteRoot.resolve(relativePath) + "'. Exiting...");
+            System.exit(1);
+        }
+    }
+
+    public void clearTrash() {
+        if (syncTrash.toFile().exists()) {
+            // Delete any pre-existing trashed files before creating the directory again
+            try {
+                Files.walkFileTree(syncTrash, new FileDeleter(false));
+            } catch (IOException ioE) {
+                System.out.println("ERROR: Clearing trash in '" + nickname + "' failed. Exiting...");
+                System.exit(1);
+            }
+        }
+
+        try {
+            Files.createDirectory(syncTrash);
+        } catch (IOException ioE) {
+            System.out.println("ERROR: Creating trash directory in '" + nickname + "' failed. Exiting...");
+            System.exit(1);
         }
     }
 
