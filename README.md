@@ -19,8 +19,8 @@ This project is built and maintained with Maven. After downloading and installin
 
 ### Running
 Driver.java is the entry point of the FileSync program. After building, run a file sync with the following command:  
-`java Driver <directory1-absolute-path> <directory2-absolute-path> <directory1-nickname> <directory2-nickname>`  
-Example: `java Driver /home/user/Documents /mnt/laptop/home/user/Documents desktop laptop`  
+`java filesync.Driver <directory1-absolute-path> <directory2-absolute-path> <directory1-nickname> <directory2-nickname>`  
+Example: `java filesync.Driver /home/user/Documents /mnt/laptop/home/user/Documents desktop laptop`  
 
 Arguments:  
 `directory1-absolute-path` is the absolute path to the first directory. There is no enforced ordering of directory1 and directory2, but do make sure the directory nicknames are always associated with the same directory paths  
