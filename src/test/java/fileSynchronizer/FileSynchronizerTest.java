@@ -132,12 +132,14 @@ public final class FileSynchronizerTest {
 
     @Test
     void newLocalFilesShouldBeCopiedToRemote() {
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+
         Path newLocalFile1 = Path.of("newLocalFile1.txt");
         Path newLocalFile2 = Path.of("newLocalFile2.txt");
 
         createFiles(testingLocalDirectory, newLocalFile1, newLocalFile2);
 
-        FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
 
         assertTrue(allFilesExist(testingRemoteDirectory, newLocalFile1, newLocalFile2));
@@ -145,12 +147,14 @@ public final class FileSynchronizerTest {
 
     @Test
     void newRemoteFilesShouldBeCopiedToLocal() {
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+
         Path newLocalFile1 = Path.of("newRemoteFile1.txt");
         Path newLocalFile2 = Path.of("newRemoteFile2.txt");
 
         createFiles(testingRemoteDirectory, newLocalFile1, newLocalFile2);
 
-        FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
 
         assertTrue(allFilesExist(testingLocalDirectory, newLocalFile1, newLocalFile2));
@@ -158,12 +162,14 @@ public final class FileSynchronizerTest {
 
     @Test
     void newEmptyLocalDirectoriesShouldNotBeCopiedToRemote() {
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+
         Path newLocalDir1 = Path.of("newLocalDir1.txt");
         Path newLocalDir2 = Path.of("newLocalDir2.txt");
 
         createDirectories(testingLocalDirectory, newLocalDir1, newLocalDir2);
 
-        FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
 
         assertFalse(allFilesExist(testingRemoteDirectory, newLocalDir1, newLocalDir2));
@@ -171,12 +177,14 @@ public final class FileSynchronizerTest {
 
     @Test
     void newEmptyRemoteDirectoriesShouldNotBeCopiedToRemote() {
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+
         Path newRemoteDir1 = Path.of("newRemoteDir1.txt");
         Path newRemoteDir2 = Path.of("newRemoteDir2.txt");
 
         createDirectories(testingRemoteDirectory, newRemoteDir1, newRemoteDir2);
 
-        FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
 
         assertFalse(allFilesExist(testingLocalDirectory, newRemoteDir1, newRemoteDir2));
@@ -184,13 +192,15 @@ public final class FileSynchronizerTest {
 
     @Test
     void newNonEmptyLocalDirectoryShouldBeCopiedToRemote() {
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+
         Path newLocalDir1 = Path.of("newLocalDir1.txt");
         Path newLocalFile1 = newLocalDir1.resolve("newLocalFile1.txt");
 
         createDirectories(testingLocalDirectory, newLocalDir1);
         createFiles(testingLocalDirectory, newLocalFile1);
 
-        FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
 
         assertTrue(allFilesExist(testingRemoteDirectory, newLocalDir1, newLocalFile1));
@@ -198,23 +208,26 @@ public final class FileSynchronizerTest {
 
     @Test
     void newNonEmptyRemoteDirectoryShouldBeCopiedToRemote() {
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+
         Path newRemoteDir1 = Path.of("newRemoteDir1.txt");
         Path newRemoteFile1 = newRemoteDir1.resolve("newRemoteFile1.txt");
 
         createDirectories(testingRemoteDirectory, newRemoteDir1);
         createFiles(testingRemoteDirectory, newRemoteFile1);
 
-        FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
 
         assertTrue(allFilesExist(testingLocalDirectory, newRemoteDir1, newRemoteFile1));
     }
-    
+
+
     /*
     1. [X] No files changed since last sync
     2. [X] Only regular files changed since last sync l/r
-    4. [ ] Only directories changed since last sync l/r
-    5. [ ] Files and directories changed since last sync (from only one root) l/r
+    4. [X] Only directories changed since last sync l/r
+    5. [X] Files and directories changed since last sync (from only one root) l/r
     6. [ ] Directories have never been synced before
     	    (if .sync_log or sync log entry doesn't exist, give option to either set last sync time OR
     	    perform the sync with last_sync_time=0, which would update all the files to each of their
