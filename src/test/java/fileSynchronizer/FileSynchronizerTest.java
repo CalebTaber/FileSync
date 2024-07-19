@@ -2,6 +2,7 @@ package fileSynchronizer;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -51,6 +52,14 @@ public final class FileSynchronizerTest {
             Files.write(filepath, textToAppend.getBytes(), StandardOpenOption.APPEND);
         } catch (IOException ioE) {
             ioE.printStackTrace();
+        }
+    }
+
+    void delay(int milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
@@ -129,6 +138,7 @@ public final class FileSynchronizerTest {
     void noUserFilesInEitherDirectory() {
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
+        delay(10);
 
         File localDir = testingLocalDirectory.toFile();
         String[] localDirFilenames = localDir.list();
@@ -158,6 +168,7 @@ public final class FileSynchronizerTest {
     void newLocalFilesShouldBeCopiedToRemote() {
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
+        delay(10);
 
         Path newLocalFile1 = Path.of("newLocalFile1.txt");
         Path newLocalFile2 = Path.of("newLocalFile2.txt");
@@ -173,6 +184,7 @@ public final class FileSynchronizerTest {
     void newRemoteFilesShouldBeCopiedToLocal() {
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
+        delay(10);
 
         Path newLocalFile1 = Path.of("newRemoteFile1.txt");
         Path newLocalFile2 = Path.of("newRemoteFile2.txt");
@@ -188,6 +200,7 @@ public final class FileSynchronizerTest {
     void newEmptyLocalDirectoriesShouldNotBeCopiedToRemote() {
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
+        delay(10);
 
         Path newLocalDir1 = Path.of("newLocalDir1.txt");
         Path newLocalDir2 = Path.of("newLocalDir2.txt");
@@ -203,6 +216,7 @@ public final class FileSynchronizerTest {
     void newEmptyRemoteDirectoriesShouldNotBeCopiedToRemote() {
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
+        delay(10);
 
         Path newRemoteDir1 = Path.of("newRemoteDir1.txt");
         Path newRemoteDir2 = Path.of("newRemoteDir2.txt");
@@ -218,6 +232,7 @@ public final class FileSynchronizerTest {
     void newNonEmptyLocalDirectoryShouldBeCopiedToRemote() {
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
+        delay(10);
 
         Path newLocalDir1 = Path.of("newLocalDir1.txt");
         Path newLocalFile1 = newLocalDir1.resolve("newLocalFile1.txt");
@@ -234,6 +249,7 @@ public final class FileSynchronizerTest {
     void newNonEmptyRemoteDirectoryShouldBeCopiedToRemote() {
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
+        delay(10);
 
         Path newRemoteDir1 = Path.of("newRemoteDir1.txt");
         Path newRemoteFile1 = newRemoteDir1.resolve("newRemoteFile1.txt");
@@ -254,12 +270,14 @@ public final class FileSynchronizerTest {
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
 
+        // Add delay so file has modified time > last_sync_time and is thus copied to remote upon second sync
+        delay(10);
         appendFile(testingLocalDirectory.resolve(localFile1), "AppendTest");
 
         FileSynchronizer secondSync = testingFileSynchronizer();
         secondSync.synchronizeFileTrees();
 
-        assertEquals("AppendTest", getFileContents(testingRemoteDirectory.resolve(testingLocalDirectory).resolve(localFile1)));
+        assertEquals("AppendTest", getFileContents(testingRemoteDirectory.resolve(localFile1)));
     }
 
 
