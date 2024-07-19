@@ -2,11 +2,9 @@ package fileSynchronizer;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 
@@ -17,6 +15,8 @@ public final class FileSynchronizerTest {
     private final Path testingParentDirectory = Path.of(System.getProperty("user.home")).resolve("Desktop").resolve("filesync_test");
     private final Path testingLocalDirectory = testingParentDirectory.resolve("local");
     private final Path testingRemoteDirectory = testingParentDirectory.resolve("remote");
+
+    private InputStream userInput = new ByteArrayInputStream(new byte[]{});
 
     void createFiles(Path parentDir, Path...relativePaths) {
         for (Path relative : relativePaths) {
@@ -63,6 +63,15 @@ public final class FileSynchronizerTest {
         }
     }
 
+    void passUserInput(String ... inputs) {
+        StringBuilder allInputs = new StringBuilder();
+        for (String token : inputs) {
+            allInputs.append(token).append('\n');
+        }
+
+        userInput = new ByteArrayInputStream(allInputs.toString().getBytes());
+    }
+
     String getFileContents(Path filepath) {
         try {
             StringBuilder allLines = new StringBuilder();
@@ -87,7 +96,7 @@ public final class FileSynchronizerTest {
     }
 
     FileSynchronizer testingFileSynchronizer() {
-        return new FileSynchronizer(testingLocalDirectory.toString(), testingRemoteDirectory.toString(), "local", "remote", true, true);
+        return new FileSynchronizer(testingLocalDirectory.toString(), testingRemoteDirectory.toString(), "local", "remote", userInput, true, true);
     }
 
     @BeforeEach
@@ -265,46 +274,129 @@ public final class FileSynchronizerTest {
     @Test
     void modifiedLocalFilesShouldBeCopiedToRemote() {
         Path localFile1 = Path.of("modifiedLocalFile");
-        createFiles(testingLocalDirectory, localFile1);
+        Path localFile2 = Path.of("modifiedLocalFile2");
+        createFiles(testingLocalDirectory, localFile1, localFile2);
 
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
-
-        // Add delay so file has modified time > last_sync_time and is thus copied to remote upon second sync
         delay(10);
+
         appendFile(testingLocalDirectory.resolve(localFile1), "AppendTest");
+        appendFile(testingLocalDirectory.resolve(localFile2), "AppendTest2");
 
         FileSynchronizer secondSync = testingFileSynchronizer();
         secondSync.synchronizeFileTrees();
 
         assertEquals("AppendTest", getFileContents(testingRemoteDirectory.resolve(localFile1)));
+        assertEquals("AppendTest2", getFileContents(testingRemoteDirectory.resolve(localFile2)));
+    }
+
+    @Test
+    void modifiedRemoteFilesShouldBeCopiedToLocal() {
+        Path remoteFile1 = Path.of("modifiedRemoteFile");
+        Path remoteFile2 = Path.of("modifiedRemoteFile2");
+        createFiles(testingLocalDirectory, remoteFile1, remoteFile2);
+
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+        delay(10);
+
+        appendFile(testingLocalDirectory.resolve(remoteFile1), "AppendTest");
+        appendFile(testingLocalDirectory.resolve(remoteFile2), "AppendTest2");
+
+        FileSynchronizer secondSync = testingFileSynchronizer();
+        secondSync.synchronizeFileTrees();
+
+        assertEquals("AppendTest", getFileContents(testingRemoteDirectory.resolve(remoteFile1)));
+        assertEquals("AppendTest2", getFileContents(testingRemoteDirectory.resolve(remoteFile2)));
+    }
+
+    @Test
+    void fileWithSpaceInNameSyncSuccessfully() {
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+        delay(10);
+
+        Path newLocalFile1 = Path.of("new Local File1.txt");
+        Path newLocalFile2 = Path.of("new Local File2.txt");
+
+        createFiles(testingLocalDirectory, newLocalFile1, newLocalFile2);
+
+        synchronizer.synchronizeFileTrees();
+
+        assertTrue(allFilesExist(testingRemoteDirectory, newLocalFile1, newLocalFile2));
+    }
+
+    @Test
+    void syncConflictShouldCopyLocalFileOverRemote() {
+
+        Path conflict = Path.of("conflictFile");
+        createFiles(testingLocalDirectory, conflict);
+        createFiles(testingRemoteDirectory, conflict);
+
+        passUserInput("1"); // Choose local changes
+
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+        delay(10);
+
+        appendFile(testingLocalDirectory.resolve(conflict), "Local");
+        appendFile(testingRemoteDirectory.resolve(conflict), "Remote");
+
+        passUserInput("1"); // Choose local changes
+
+        FileSynchronizer secondSync = testingFileSynchronizer();
+        secondSync.synchronizeFileTrees();
+
+        assertEquals("Local", getFileContents(testingLocalDirectory.resolve(conflict)));
+        assertEquals("Local", getFileContents(testingRemoteDirectory.resolve(conflict)));
+    }
+
+    @Test
+    void syncConflictShouldCopyRemoteFileOverLocal() {
+
+        Path conflict = Path.of("conflictFile");
+        createFiles(testingLocalDirectory, conflict);
+        createFiles(testingRemoteDirectory, conflict);
+
+        passUserInput("2"); // Choose local changes
+
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+        delay(10);
+
+        appendFile(testingLocalDirectory.resolve(conflict), "Local");
+        appendFile(testingRemoteDirectory.resolve(conflict), "Remote");
+
+        passUserInput("2"); // Choose local changes
+
+        FileSynchronizer secondSync = testingFileSynchronizer();
+        secondSync.synchronizeFileTrees();
+
+        assertEquals("Remote", getFileContents(testingLocalDirectory.resolve(conflict)));
+        assertEquals("Remote", getFileContents(testingRemoteDirectory.resolve(conflict)));
     }
 
 
     /*
     1. [X] No files changed since last sync
-    2. [ ] Only regular files changed since last sync l/r
-    4. [ ] Only directories changed since last sync l/r
-    5. [ ] Files and directories changed since last sync (from only one root) l/r
+    2. [X] Only regular files changed since last sync l/r
+    4. [X] Only directories changed since last sync l/r
+    5. [X] Files and directories changed since last sync (from only one root) l/r
     6. [ ] Directories have never been synced before
     	    (if .sync_log or sync log entry doesn't exist, give option to either set last sync time OR
     	    perform the sync with last_sync_time=0, which would update all the files to each of their
     	    latest versions, and would make the two directories identical) (l/r)
     7. [ ] File modified since last sync in both directories, resulting in a conflict
-    8. [ ] Multiple nested directories of files modified
     9. [X] New file created l/r
     10. [X] New directory created l/r
-    11. [ ] New file 'new' is created locally. New directory 'new' is created remotely. File copying fails l/r
-    12. [ ] 1000 files l/r
-    13. [ ] File is deleted since last sync l/r
-    14. [ ] Files with spaces in the name l/r
-    15. [ ] Excluded files are modified l/r
-    16. [ ] Test .sync_exclude is written correctly l/r
-    17. [ ] Test .sync_log is written correctly l/r
-    18. [ ] Test sync trash structures files correctly l/r
-    19. [ ] Test if 'y' option is selected, that the sync trash dir is deleted entirely l/r
-    20. [ ] Test if 'n' option is selected, that the sync trash dir is not deleted l/r
-    21. [ ] Test if 'n' option is selected and then another sync is started that the sync trash dir is emptied before starting the sync
-    22. [ ] Syncing with multiple directories l/r
+    11. [ ] 1000 files l/r
+    12. [ ] File is deleted since last sync l/r
+    13. [X] Files with spaces in the name l/r
+    14. [ ] Excluded files are modified l/r
+    15. [ ] Test .sync_exclude is written correctly l/r
+    16. [ ] Test .sync_log is written correctly l/r
+    17. [ ] Test sync trash structures files correctly l/r
+    18. [ ] Syncing with multiple directories l/r
     */
 }
