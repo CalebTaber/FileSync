@@ -171,7 +171,7 @@ public final class FileSyncRoot {
             Scanner logReader = new Scanner(syncLog);
             while (logReader.hasNext()) {
                 String[] hostNameAndLastSync = logReader.nextLine().split(",");
-                if (hostNameAndLastSync[0].equals(remoteNickname)) return Long.parseLong(hostNameAndLastSync[1]);
+                if (hostNameAndLastSync[0].equalsIgnoreCase(remoteNickname)) return Long.parseLong(hostNameAndLastSync[1]);
             }
             logReader.close();
         } catch (IOException ioE) {

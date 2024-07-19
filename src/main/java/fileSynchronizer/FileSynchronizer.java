@@ -19,10 +19,11 @@ public class FileSynchronizer {
     private final Set<Path> excludedPaths;
     private final long lastSyncMillis;
     private final FileSyncRoot localRoot, remoteRoot;
-    private final boolean verbose;
+    private final boolean verbose, isUnitTesting;
 
-    public FileSynchronizer(String localRootPath, String remoteRootPath, String localNickname, String remoteNickname, boolean verbose) {
+    public FileSynchronizer(String localRootPath, String remoteRootPath, String localNickname, String remoteNickname, boolean verbose, boolean isUnitTesting) {
         this.verbose = verbose;
+        this.isUnitTesting = isUnitTesting;
         localRoot = new FileSyncRoot(localRootPath, localNickname, remoteNickname, verbose);
         remoteRoot = new FileSyncRoot(remoteRootPath, remoteNickname, localNickname, verbose);
 
@@ -38,6 +39,7 @@ public class FileSynchronizer {
         // Compare file trees in a breadth-first fashion and collect paths of conflicting files
         Set<Path> conflicts = syncFileTrees(Path.of(""));
 
+        Scanner userInput = new Scanner(System.in);
         // Resolve conflicts manually
         for (Path conflict : conflicts) {
             ZonedDateTime localModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(localRoot.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
@@ -47,14 +49,14 @@ public class FileSynchronizer {
             System.out.println("\t" + localRoot.getNickname() + " (1): '" + conflict + "' modified " + localModified.format(timestampFormatter));
             System.out.println("\t" + remoteRoot.getNickname() + " (2): '" + conflict + "' modified " + remoteModified.format(timestampFormatter));
             System.out.print("Take changes from " + localRoot.getNickname() + " (1) or from " + remoteRoot.getNickname() + " (2)?: ");
-            boolean takeLocal = Driver.USER_INPUT.nextLine().equalsIgnoreCase("1");
+            boolean takeLocal = userInput.nextLine().equalsIgnoreCase("1");
 
             if (takeLocal) remoteRoot.copyFromRemote(conflict, localRoot.getRoot());
             else localRoot.copyFromRemote(conflict, remoteRoot.getRoot());
         }
 
         // Print all trashed file names and ask user if they want to delete them or not
-        if (localRoot.getSyncTrash().toFile().list().length != 0 || remoteRoot.getSyncTrash().toFile().list().length != 0) {
+        if (!isUnitTesting && (localRoot.getSyncTrash().toFile().list().length != 0 || remoteRoot.getSyncTrash().toFile().list().length != 0)) {
             System.out.println("\nAll trashed files:");
 
             try {
@@ -65,12 +67,13 @@ public class FileSynchronizer {
             }
 
             System.out.print("Delete all trashed files? (y/n): ");
-            String deleteDecision = Driver.USER_INPUT.nextLine();
+            String deleteDecision = userInput.nextLine();
 
             if (deleteDecision.equalsIgnoreCase("y")) {
                 localRoot.clearTrash();
                 remoteRoot.clearTrash();
-            } else System.out.println("No trashed files will be deleted");
+            }
+            else System.out.println("No trashed files will be deleted");
         }
 
         // Export excluded paths to .sync_exclude
@@ -85,7 +88,7 @@ public class FileSynchronizer {
 
     private long getFileCreationTime(Path absolutePath) {
         try {
-            final BasicFileAttributes fileAttrs = Files.readAttributes(absolutePath, BasicFileAttributes.class);
+            BasicFileAttributes fileAttrs = Files.readAttributes(absolutePath, BasicFileAttributes.class);
             return fileAttrs.creationTime().toMillis();
         } catch (IOException ioE) {
             System.out.println("ERROR: Could not retrieve creation time of '" + absolutePath + "'. Exiting...");

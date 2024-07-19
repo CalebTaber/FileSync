@@ -46,6 +46,30 @@ public final class FileSynchronizerTest {
         }
     }
 
+    void appendFile(Path filepath, String textToAppend) {
+        try {
+            Files.write(filepath, textToAppend.getBytes(), StandardOpenOption.APPEND);
+        } catch (IOException ioE) {
+            ioE.printStackTrace();
+        }
+    }
+
+    String getFileContents(Path filepath) {
+        try {
+            StringBuilder allLines = new StringBuilder();
+
+            for (String line : Files.readAllLines(filepath)) {
+                allLines.append(line);
+            }
+
+            return allLines.toString();
+        } catch (IOException ioE) {
+            ioE.printStackTrace();
+        }
+
+        return "";
+    }
+
     boolean allFilesExist(Path parentDir, Path...paths) {
         for (Path p : paths) {
             if (!parentDir.resolve(p).toFile().exists()) return false;
@@ -54,7 +78,7 @@ public final class FileSynchronizerTest {
     }
 
     FileSynchronizer testingFileSynchronizer() {
-        return new FileSynchronizer(testingLocalDirectory.toString(), testingRemoteDirectory.toString(), "local", "remote", false);
+        return new FileSynchronizer(testingLocalDirectory.toString(), testingRemoteDirectory.toString(), "local", "remote", true, true);
     }
 
     @BeforeEach
@@ -222,20 +246,36 @@ public final class FileSynchronizerTest {
         assertTrue(allFilesExist(testingLocalDirectory, newRemoteDir1, newRemoteFile1));
     }
 
+    @Test
+    void modifiedLocalFilesShouldBeCopiedToRemote() {
+        Path localFile1 = Path.of("modifiedLocalFile");
+        createFiles(testingLocalDirectory, localFile1);
+
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+
+        appendFile(testingLocalDirectory.resolve(localFile1), "AppendTest");
+
+        FileSynchronizer secondSync = testingFileSynchronizer();
+        secondSync.synchronizeFileTrees();
+
+        assertEquals("AppendTest", getFileContents(testingRemoteDirectory.resolve(testingLocalDirectory).resolve(localFile1)));
+    }
+
 
     /*
     1. [X] No files changed since last sync
-    2. [X] Only regular files changed since last sync l/r
-    4. [X] Only directories changed since last sync l/r
-    5. [X] Files and directories changed since last sync (from only one root) l/r
+    2. [ ] Only regular files changed since last sync l/r
+    4. [ ] Only directories changed since last sync l/r
+    5. [ ] Files and directories changed since last sync (from only one root) l/r
     6. [ ] Directories have never been synced before
     	    (if .sync_log or sync log entry doesn't exist, give option to either set last sync time OR
     	    perform the sync with last_sync_time=0, which would update all the files to each of their
     	    latest versions, and would make the two directories identical) (l/r)
     7. [ ] File modified since last sync in both directories, resulting in a conflict
     8. [ ] Multiple nested directories of files modified
-    9. [ ] New file created l/r
-    10. [ ] New directory created l/r
+    9. [X] New file created l/r
+    10. [X] New directory created l/r
     11. [ ] New file 'new' is created locally. New directory 'new' is created remotely. File copying fails l/r
     12. [ ] 1000 files l/r
     13. [ ] File is deleted since last sync l/r
