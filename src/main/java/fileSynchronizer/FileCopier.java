@@ -31,7 +31,7 @@ public class FileCopier extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult visitFileFailed(Path path, IOException e) {
-        System.out.println("ERROR: Copying file '" + path + "' to '" + destinationDir.resolve(sourceDir.relativize(path)) + "' failed. Exiting...");
+        System.err.println("ERROR: Copying file '" + path + "' to '" + destinationDir.resolve(sourceDir.relativize(path)) + "' failed. Exiting...");
         System.exit(1);
         return FileVisitResult.TERMINATE;
     }

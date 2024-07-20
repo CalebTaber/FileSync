@@ -22,7 +22,7 @@ public class FileNamePrinter extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult visitFileFailed(Path path, IOException e) {
-        System.out.println("ERROR: Printing file '" + path + "' failed. Exiting...");
+        System.err.println("ERROR: Printing file '" + path + "' failed. Exiting...");
         System.exit(1);
         return FileVisitResult.TERMINATE;
     }

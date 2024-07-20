@@ -24,7 +24,7 @@ public class FileDeleter extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult visitFileFailed(Path path, IOException e) {
-        System.out.println("ERROR: Deletion of file '" + path + "' failed. Exiting...");
+        System.err.println("ERROR: Deletion of file '" + path + "' failed. Exiting...");
         System.exit(1);
         return FileVisitResult.TERMINATE;
     }

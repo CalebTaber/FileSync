@@ -19,12 +19,10 @@ public class FileSynchronizer {
     private final long lastSyncMillis;
     private final FileSyncRoot localRoot, remoteRoot;
     private final boolean verbose;
-    private final InputStream userInput;
     private final BufferedReader userInputReader;
 
     public FileSynchronizer(String localRootPath, String remoteRootPath, String localNickname, String remoteNickname, InputStream userInput, boolean verbose) {
         this.verbose = verbose;
-        this.userInput = userInput;
         userInputReader = new BufferedReader(new InputStreamReader(userInput));
 
         localRoot = new FileSyncRoot(localRootPath, localNickname, remoteNickname, verbose);
@@ -140,7 +138,7 @@ public class FileSynchronizer {
                 else if (remoteModified > lastSyncMillis) localRoot.copyFromRemote(relativePath, remoteRoot.getRoot());
             }
             else {
-                System.out.println("ERROR: '" +  localFile.getPath() + "' AND '" + remoteFile.getPath() + "' are not the same type. Exiting...");
+                System.err.println("ERROR: '" +  localFile.getPath() + "' AND '" + remoteFile.getPath() + "' are not the same type. Exiting...");
                 System.exit(1);
             }
         }
@@ -156,7 +154,7 @@ public class FileSynchronizer {
         try {
             return userInputReader.readLine();
         } catch (IOException e) {
-            System.out.println("ERROR: NO INPUT READABLE");
+            System.err.println("ERROR: NO INPUT READABLE");
             System.exit(1);
         }
 
