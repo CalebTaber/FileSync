@@ -39,6 +39,20 @@ public class FileSynchronizer {
     }
 
     public void synchronizeFileTrees() {
+        if (lastSyncMillis == 0) {
+            System.out.println("No sync record exists between " + localRoot.getNickname() + " and " + remoteRoot.getNickname() + ". What would you like to do?");
+            System.out.println("\t(1) Perform full sync now");
+            System.out.println("\t(2) Both directories are already equivalent, so just add a sync record");
+            String response = getUserInput();
+
+            if (response.equalsIgnoreCase("1")) ;
+            else if (response.equalsIgnoreCase("2")) {
+               closeRoots();
+               return;
+            }
+            else System.exit(1);
+        }
+
         // Compare file trees in a breadth-first fashion and collect paths of conflicting files
         Set<Path> conflicts = syncFileTrees(Path.of(""));
 
@@ -51,7 +65,8 @@ public class FileSynchronizer {
             System.out.println("\t" + localRoot.getNickname() + " (1): '" + conflict + "' modified " + localModified.format(timestampFormatter));
             System.out.println("\t" + remoteRoot.getNickname() + " (2): '" + conflict + "' modified " + remoteModified.format(timestampFormatter));
             System.out.print("Take changes from " + localRoot.getNickname() + " (1) or from " + remoteRoot.getNickname() + " (2)?: ");
-            boolean takeLocal = getUserInput().equalsIgnoreCase("1");
+            String decision = getUserInput();
+            boolean takeLocal = decision.equalsIgnoreCase("1");
 
             if (takeLocal) remoteRoot.copyFromRemote(conflict, localRoot.getRoot());
             else localRoot.copyFromRemote(conflict, remoteRoot.getRoot());
@@ -78,6 +93,10 @@ public class FileSynchronizer {
             else System.out.println("No trashed files will be deleted");
         }
 
+        closeRoots();
+    }
+
+    private void closeRoots() {
         // Export excluded paths to .sync_exclude
         localRoot.writeExcludedPathsList(excludedPaths);
         remoteRoot.writeExcludedPathsList(excludedPaths);
@@ -93,19 +112,16 @@ public class FileSynchronizer {
             BasicFileAttributes fileAttrs = Files.readAttributes(absolutePath, BasicFileAttributes.class);
             return fileAttrs.creationTime().toMillis();
         } catch (IOException ioE) {
-            System.out.println("ERROR: Could not retrieve creation time of '" + absolutePath + "'. Exiting...");
-            System.exit(1);
+            return -1;
         }
-
-        return -1;
     }
 
     private Set<Path> syncFileTrees(Path relativePath) {
-        final File localFile = localRoot.resolve(relativePath).toFile();
-        final File remoteFile = remoteRoot.resolve(relativePath).toFile();
+        File localFile = localRoot.resolve(relativePath).toFile();
+        File remoteFile = remoteRoot.resolve(relativePath).toFile();
 
-        final boolean localExists = localFile.exists();
-        final boolean remoteExists = remoteFile.exists();
+        boolean localExists = localFile.exists();
+        boolean remoteExists = remoteFile.exists();
 
         Set<Path> conflicts = new HashSet<>();
 
@@ -116,8 +132,8 @@ public class FileSynchronizer {
                 }
             }
             else if (localFile.isFile() && remoteFile.isFile()) {
-                final long localModified = localFile.lastModified();
-                final long remoteModified = remoteFile.lastModified();
+                long localModified = localFile.lastModified();
+                long remoteModified = remoteFile.lastModified();
 
                 if (localModified > lastSyncMillis && remoteModified > lastSyncMillis) return Set.of(relativePath); // Case: both files modified since last sync. Conflict
                 else if (localModified > lastSyncMillis) remoteRoot.copyFromRemote(relativePath, localRoot.getRoot());

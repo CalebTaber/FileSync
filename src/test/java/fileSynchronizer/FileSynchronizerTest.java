@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -41,7 +43,7 @@ public final class FileSynchronizerTest {
 
     void createDirectories(Path absolutePath) {
         try {
-            Files.createDirectories(absolutePath.getParent());
+            Files.createDirectories(absolutePath);
         } catch (IOException ioE) {
             ioE.printStackTrace();
         }
@@ -63,7 +65,7 @@ public final class FileSynchronizerTest {
 
     void appendLineToFile(Path filepath, String textToAppend) {
         try {
-            Files.write(filepath, (System.lineSeparator() + textToAppend).getBytes(), StandardOpenOption.APPEND);
+            Files.write(filepath, (textToAppend + System.lineSeparator()).getBytes(), StandardOpenOption.APPEND);
         } catch (IOException ioE) {
             ioE.printStackTrace();
         }
@@ -87,19 +89,27 @@ public final class FileSynchronizerTest {
     }
 
     String getFileContents(Path filepath) {
+        StringBuilder allLines = new StringBuilder();
+
+        List<String> lines = getFileLines(filepath);
+        for (int i = 0; i < lines.size(); i++) {
+            allLines.append(lines.get(i));
+            if (i < lines.size() - 1) allLines.append(System.lineSeparator());
+        }
+
+        return allLines.toString();
+    }
+
+    List<String> getFileLines(Path filepath) {
+        List<String> lines = new ArrayList<>();
+
         try {
-            StringBuilder allLines = new StringBuilder();
-
-            for (String line : Files.readAllLines(filepath)) {
-                allLines.append(line);
-            }
-
-            return allLines.toString();
+            lines = Files.readAllLines(filepath);
         } catch (IOException ioE) {
             ioE.printStackTrace();
         }
 
-        return "";
+        return lines;
     }
 
     boolean allFilesExist(Path parentDir, Path...paths) {
@@ -109,7 +119,18 @@ public final class FileSynchronizerTest {
         return true;
     }
 
-    FileSynchronizer testingFileSynchronizer() {
+    FileSynchronizer testingFileSynchronizer(boolean isFirstSync, boolean performFullSync, boolean deleteTrash, String...conflictResolutions) {
+        String[] inputs = new String[conflictResolutions.length + ((isFirstSync) ? 2 : 1)];
+
+        // Load input stream with user responses
+        if (isFirstSync) inputs[0] = (performFullSync) ? "1" : "2";
+        inputs[inputs.length - 1] = (deleteTrash) ? "y" : "n";
+
+        for (int i = 0; i < conflictResolutions.length; i++) {
+            inputs[i + ((isFirstSync) ? 1 : 0)] = conflictResolutions[i];
+        }
+
+        passUserInput(inputs);
         return new FileSynchronizer(testingLocalDirectory.toString(), testingRemoteDirectory.toString(), "local", "remote", userInput, true);
     }
 
@@ -159,7 +180,7 @@ public final class FileSynchronizerTest {
 
     @Test
     void noUserFilesInEitherDirectory() {
-        FileSynchronizer synchronizer = testingFileSynchronizer();
+        FileSynchronizer synchronizer = testingFileSynchronizer(true, true, true);
         synchronizer.synchronizeFileTrees();
         delay(10);
 
@@ -189,8 +210,8 @@ public final class FileSynchronizerTest {
 
     @Test
     void newLocalFilesShouldBeCopiedToRemote() {
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         Path newLocalFile1 = Path.of("newLocalFile1.txt");
@@ -198,15 +219,16 @@ public final class FileSynchronizerTest {
 
         createFiles(testingLocalDirectory, newLocalFile1, newLocalFile2);
 
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
+        secondSync.synchronizeFileTrees();
 
         assertTrue(allFilesExist(testingRemoteDirectory, newLocalFile1, newLocalFile2));
     }
 
     @Test
     void newRemoteFilesShouldBeCopiedToLocal() {
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         Path newLocalFile1 = Path.of("newRemoteFile1.txt");
@@ -214,47 +236,50 @@ public final class FileSynchronizerTest {
 
         createFiles(testingRemoteDirectory, newLocalFile1, newLocalFile2);
 
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
+        secondSync.synchronizeFileTrees();
 
         assertTrue(allFilesExist(testingLocalDirectory, newLocalFile1, newLocalFile2));
     }
 
     @Test
-    void newEmptyLocalDirectoriesShouldNotBeCopiedToRemote() {
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+    void newEmptyLocalDirectoriesShouldBeCopiedToRemote() {
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
-        Path newLocalDir1 = Path.of("newLocalDir1.txt");
-        Path newLocalDir2 = Path.of("newLocalDir2.txt");
+        Path newLocalDir1 = Path.of("newLocalDir1");
+        Path newLocalDir2 = Path.of("newLocalDir2");
 
         createDirectories(testingLocalDirectory, newLocalDir1, newLocalDir2);
 
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
+        secondSync.synchronizeFileTrees();
 
-        assertFalse(allFilesExist(testingRemoteDirectory, newLocalDir1, newLocalDir2));
+        assertTrue(allFilesExist(testingRemoteDirectory, newLocalDir1, newLocalDir2));
     }
 
     @Test
-    void newEmptyRemoteDirectoriesShouldNotBeCopiedToRemote() {
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+    void newEmptyRemoteDirectoriesShouldBeCopiedToRemote() {
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
-        Path newRemoteDir1 = Path.of("newRemoteDir1.txt");
-        Path newRemoteDir2 = Path.of("newRemoteDir2.txt");
+        Path newRemoteDir1 = Path.of("newRemoteDir1");
+        Path newRemoteDir2 = Path.of("newRemoteDir2");
 
         createDirectories(testingRemoteDirectory, newRemoteDir1, newRemoteDir2);
 
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
+        secondSync.synchronizeFileTrees();
 
-        assertFalse(allFilesExist(testingLocalDirectory, newRemoteDir1, newRemoteDir2));
+        assertTrue(allFilesExist(testingLocalDirectory, newRemoteDir1, newRemoteDir2));
     }
 
     @Test
     void newNonEmptyLocalDirectoryShouldBeCopiedToRemote() {
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         Path newLocalDir1 = Path.of("newLocalDir1.txt");
@@ -263,15 +288,16 @@ public final class FileSynchronizerTest {
         createDirectories(testingLocalDirectory, newLocalDir1);
         createFiles(testingLocalDirectory, newLocalFile1);
 
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
+        secondSync.synchronizeFileTrees();
 
         assertTrue(allFilesExist(testingRemoteDirectory, newLocalDir1, newLocalFile1));
     }
 
     @Test
     void newNonEmptyRemoteDirectoryShouldBeCopiedToRemote() {
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         Path newRemoteDir1 = Path.of("newRemoteDir1.txt");
@@ -280,7 +306,8 @@ public final class FileSynchronizerTest {
         createDirectories(testingRemoteDirectory, newRemoteDir1);
         createFiles(testingRemoteDirectory, newRemoteFile1);
 
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
+        secondSync.synchronizeFileTrees();
 
         assertTrue(allFilesExist(testingLocalDirectory, newRemoteDir1, newRemoteFile1));
     }
@@ -291,15 +318,14 @@ public final class FileSynchronizerTest {
         Path localFile2 = Path.of("modifiedLocalFile2");
         createFiles(testingLocalDirectory, localFile1, localFile2);
 
-        passUserInput("y"); // Delete trash
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         appendLineToFile(testingLocalDirectory.resolve(localFile1), "AppendTest");
         appendLineToFile(testingLocalDirectory.resolve(localFile2), "AppendTest2");
 
-        FileSynchronizer secondSync = testingFileSynchronizer();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
         secondSync.synchronizeFileTrees();
 
         assertEquals("AppendTest", getFileContents(testingRemoteDirectory.resolve(localFile1)));
@@ -312,15 +338,14 @@ public final class FileSynchronizerTest {
         Path remoteFile2 = Path.of("modifiedRemoteFile2");
         createFiles(testingLocalDirectory, remoteFile1, remoteFile2);
 
-        passUserInput("y"); // Delete trash
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         appendLineToFile(testingLocalDirectory.resolve(remoteFile1), "AppendTest");
         appendLineToFile(testingLocalDirectory.resolve(remoteFile2), "AppendTest2");
 
-        FileSynchronizer secondSync = testingFileSynchronizer();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
         secondSync.synchronizeFileTrees();
 
         assertEquals("AppendTest", getFileContents(testingRemoteDirectory.resolve(remoteFile1)));
@@ -329,8 +354,8 @@ public final class FileSynchronizerTest {
 
     @Test
     void fileWithSpaceInNameShouldSyncSuccessfully() {
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         Path newLocalFile1 = Path.of("new Local File1.txt");
@@ -338,30 +363,26 @@ public final class FileSynchronizerTest {
 
         createFiles(testingLocalDirectory, newLocalFile1, newLocalFile2);
 
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
+        secondSync.synchronizeFileTrees();
 
         assertTrue(allFilesExist(testingRemoteDirectory, newLocalFile1, newLocalFile2));
     }
 
     @Test
     void syncConflictShouldCopyLocalFileOverRemote() {
-
         Path conflict = Path.of("conflictFile");
         createFiles(testingLocalDirectory, conflict);
         createFiles(testingRemoteDirectory, conflict);
 
-        passUserInput("1", "y"); // Choose local changes and empty trash
-
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true, "1");
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         appendLineToFile(testingLocalDirectory.resolve(conflict), "Local");
         appendLineToFile(testingRemoteDirectory.resolve(conflict), "Remote");
 
-        passUserInput("1", "y"); // Choose local changes and empty trash
-
-        FileSynchronizer secondSync = testingFileSynchronizer();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true, "1");
         secondSync.synchronizeFileTrees();
 
         assertEquals("Local", getFileContents(testingLocalDirectory.resolve(conflict)));
@@ -370,23 +391,18 @@ public final class FileSynchronizerTest {
 
     @Test
     void syncConflictShouldCopyRemoteFileOverLocal() {
-
         Path conflict = Path.of("conflictFile");
         createFiles(testingLocalDirectory, conflict);
         createFiles(testingRemoteDirectory, conflict);
 
-        passUserInput("2", "y"); // Choose remote changes and empty trash
-
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true, "2");
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         appendLineToFile(testingLocalDirectory.resolve(conflict), "Local");
         appendLineToFile(testingRemoteDirectory.resolve(conflict), "Remote");
 
-        passUserInput("2", "y"); // Choose remote changes and empty trash
-
-        FileSynchronizer secondSync = testingFileSynchronizer();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true, "2");
         secondSync.synchronizeFileTrees();
 
         assertEquals("Remote", getFileContents(testingLocalDirectory.resolve(conflict)));
@@ -400,14 +416,13 @@ public final class FileSynchronizerTest {
 
         createFiles(testingLocalDirectory, localFile1, localFile2);
 
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         deleteFiles(testingLocalDirectory, localFile1, localFile2);
 
-        passUserInput("y"); // Empty trash
-        FileSynchronizer secondSync = testingFileSynchronizer();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
         secondSync.synchronizeFileTrees();
 
         assertFalse(allFilesExist(testingRemoteDirectory, localFile1));
@@ -421,14 +436,13 @@ public final class FileSynchronizerTest {
 
         createFiles(testingRemoteDirectory, remoteFile1, remoteFile2);
 
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         deleteFiles(testingRemoteDirectory, remoteFile1, remoteFile2);
 
-        passUserInput("y"); // Empty trash
-        FileSynchronizer secondSync = testingFileSynchronizer();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
         secondSync.synchronizeFileTrees();
 
         assertFalse(allFilesExist(testingLocalDirectory, remoteFile1));
@@ -443,14 +457,13 @@ public final class FileSynchronizerTest {
         createDirectories(testingLocalDirectory, newLocalDir1);
         createFiles(testingLocalDirectory, newLocalFile1);
 
-        FileSynchronizer synchronizer = testingFileSynchronizer();
-        synchronizer.synchronizeFileTrees();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
         delay(10);
 
         deleteFiles(testingLocalDirectory, newLocalFile1, newLocalDir1);
 
-        passUserInput("n"); // Don't empty trash
-        FileSynchronizer secondSync = testingFileSynchronizer();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, false);
         secondSync.synchronizeFileTrees();
 
         assertTrue(allFilesExist(testingRemoteDirectory.resolve(".sync_trash"), newLocalDir1, newLocalFile1));
@@ -458,7 +471,7 @@ public final class FileSynchronizerTest {
 
     @Test
     void filesInExclusionListShouldBeIgnored() {
-        FileSynchronizer firstSync = testingFileSynchronizer();
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
         firstSync.synchronizeFileTrees();
         delay(10);
 
@@ -466,21 +479,106 @@ public final class FileSynchronizerTest {
         createFiles(testingLocalDirectory, excludedFile);
         appendLineToFile(testingLocalDirectory.resolve(".sync_exclude"), "excluded");
 
-        FileSynchronizer secondSync = testingFileSynchronizer();
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
         secondSync.synchronizeFileTrees();
 
         assertFalse(allFilesExist(testingRemoteDirectory, excludedFile));
     }
 
+    @Test
+    void directoriesInExclusionListShouldBeIgnored() {
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
+        delay(10);
 
-    /*
-    6. [ ] Directories have never been synced before
-    	    (if .sync_log or sync log entry doesn't exist, give option to either set last sync time OR
-    	    perform the sync with last_sync_time=0, which would update all the files to each of their
-    	    latest versions, and would make the two directories identical) (l/r)
-    11. [ ] 1000 files l/r
-    14. [ ] Excluded files are modified l/r
-    16. [ ] Test .sync_log is written correctly l/r
-    18. [ ] Syncing with multiple directories l/r
-    */
+        Path excludedDir = Path.of("excluded");
+        Path excludedFile = excludedDir.resolve("excludedFile1");
+        createDirectories(testingLocalDirectory, excludedDir);
+        createFiles(testingLocalDirectory, excludedFile);
+        appendLineToFile(testingLocalDirectory.resolve(".sync_exclude"), "excluded");
+
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
+        secondSync.synchronizeFileTrees();
+
+        assertFalse(allFilesExist(testingRemoteDirectory, excludedDir));
+        assertFalse(allFilesExist(testingRemoteDirectory, excludedFile));
+    }
+
+    @Test
+    void syncingWithTwoDifferentRemotesShouldStaySeparate() {
+        Path localFile1 = Path.of("localFile1");
+        Path localDir1 = Path.of("localDir1");
+        Path localFile2 = localDir1.resolve("localFile2");
+
+        createDirectories(testingLocalDirectory, localDir1);
+        createFiles(testingLocalDirectory, localFile1, localFile2);
+
+        FileSynchronizer localToRemote = testingFileSynchronizer(true, true, true);
+        localToRemote.synchronizeFileTrees();
+        delay(10);
+
+        Path backupDir = Path.of("backup");
+        createDirectories(testingParentDirectory, backupDir);
+
+        passUserInput("1");
+        FileSynchronizer remoteToBackup = new FileSynchronizer(testingRemoteDirectory.toString(), testingParentDirectory.resolve(backupDir).toString(), "remote", "backup", userInput, true);
+        remoteToBackup.synchronizeFileTrees();
+
+        assertTrue(allFilesExist(testingParentDirectory.resolve(backupDir), localFile1, localFile2, localDir1));
+    }
+
+    @Test
+    void syncLogShouldHaveOneHostAndSyncTimePerLine() {
+        Path localFile1 = Path.of("localFile1");
+        Path localDir1 = Path.of("localDir1");
+        Path localFile2 = localDir1.resolve("localFile2");
+
+        createDirectories(testingLocalDirectory, localDir1);
+        createFiles(testingLocalDirectory, localFile1, localFile2);
+
+        FileSynchronizer localToRemote = testingFileSynchronizer(true, true, true);
+        localToRemote.synchronizeFileTrees();
+        delay(10);
+
+        Path backupDir = Path.of("backup");
+        createDirectories(testingParentDirectory, backupDir);
+
+        passUserInput("1");
+        FileSynchronizer remoteToBackup = new FileSynchronizer(testingRemoteDirectory.toString(), testingParentDirectory.resolve(backupDir).toString(), "remote", "backup", userInput, true);
+        remoteToBackup.synchronizeFileTrees();
+
+        boolean oneHostAndTimePerLine = true;
+
+        for (String line : getFileContents(testingParentDirectory.resolve(backupDir).resolve(".sync_log")).split(System.lineSeparator())) {
+            oneHostAndTimePerLine &= (line.split(",").length == 2);
+        }
+
+        assertTrue(oneHostAndTimePerLine);
+    }
+
+    @Test
+    void syncExcludeShouldBeSharedBetweenHosts() {
+        Path syncExclude = Path.of(".sync_exclude");
+        createFiles(testingLocalDirectory, syncExclude);
+        createFiles(testingRemoteDirectory, syncExclude);
+
+        appendLineToFile(testingLocalDirectory.resolve(syncExclude), "localFile1");
+        appendLineToFile(testingLocalDirectory.resolve(syncExclude), "localFile2");
+
+        appendLineToFile(testingRemoteDirectory.resolve(syncExclude), "remoteFile1");
+        appendLineToFile(testingRemoteDirectory.resolve(syncExclude), "remoteFile2");
+
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
+
+        assertTrue(getFileLines(testingLocalDirectory.resolve(syncExclude)).contains("localFile1"));
+        assertTrue(getFileLines(testingLocalDirectory.resolve(syncExclude)).contains("localFile2"));
+        assertTrue(getFileLines(testingLocalDirectory.resolve(syncExclude)).contains("remoteFile1"));
+        assertTrue(getFileLines(testingLocalDirectory.resolve(syncExclude)).contains("remoteFile2"));
+
+        assertTrue(getFileLines(testingRemoteDirectory.resolve(syncExclude)).contains("remoteFile2"));
+        assertTrue(getFileLines(testingRemoteDirectory.resolve(syncExclude)).contains("remoteFile2"));
+        assertTrue(getFileLines(testingRemoteDirectory.resolve(syncExclude)).contains("remoteFile2"));
+        assertTrue(getFileLines(testingRemoteDirectory.resolve(syncExclude)).contains("remoteFile2"));
+    }
 }

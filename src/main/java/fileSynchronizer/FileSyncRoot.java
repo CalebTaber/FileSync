@@ -81,14 +81,14 @@ public final class FileSyncRoot {
         syncRecords.add(remoteNickname + "," + newLastSyncMillis);
 
         try {
-            if (syncLog.createNewFile()) {
+            if (!syncLog.createNewFile()) {
                 Scanner logReader = new Scanner(syncLog);
 
                 while (logReader.hasNext()) {
                     String hostNameAndLastSync = logReader.nextLine();
-
                     if (!hostNameAndLastSync.startsWith(remoteNickname + ",")) syncRecords.add(hostNameAndLastSync);
                 }
+
                 logReader.close();
             }
 
@@ -99,7 +99,8 @@ public final class FileSyncRoot {
             logWriter.close();
 
         } catch (IOException ioE) {
-            System.out.println();
+            if (verbose) System.out.println("ERROR: Last sync could not be set. Exiting...");
+            System.exit(1);
         }
     }
 
