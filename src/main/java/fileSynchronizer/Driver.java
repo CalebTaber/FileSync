@@ -74,7 +74,7 @@ public class Driver {
             }
         }
 
-        FileSynchronizer synchronizer = new FileSynchronizer(newArgs[0], newArgs[1], newArgs[2], newArgs[3], System.in, true, false);
+        FileSynchronizer synchronizer = new FileSynchronizer(newArgs[0], newArgs[1], newArgs[2], newArgs[3], System.in, true);
         synchronizer.synchronizeFileTrees();
 
         USER_INPUT.close();

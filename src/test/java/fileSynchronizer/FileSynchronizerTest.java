@@ -24,10 +24,10 @@ public final class FileSynchronizerTest {
         }
     }
 
-    void createFile(Path absoluePath) {
+    void createFile(Path absolutePath) {
         try {
-            Files.createDirectories(absoluePath.getParent());
-            Files.createFile(absoluePath);
+            Files.createDirectories(absolutePath.getParent());
+            Files.createFile(absolutePath);
         } catch (IOException ioE) {
             ioE.printStackTrace();
         }
@@ -39,9 +39,23 @@ public final class FileSynchronizerTest {
         }
     }
 
-    void createDirectories(Path absoluePath) {
+    void createDirectories(Path absolutePath) {
         try {
-            Files.createDirectories(absoluePath.getParent());
+            Files.createDirectories(absolutePath.getParent());
+        } catch (IOException ioE) {
+            ioE.printStackTrace();
+        }
+    }
+
+    void deleteFiles(Path parentDir, Path...relativePaths) {
+        for (Path relative : relativePaths) {
+            deleteFile(parentDir.resolve(relative));
+        }
+    }
+
+    void deleteFile(Path absolutePath) {
+        try {
+            Files.delete(absolutePath);
         } catch (IOException ioE) {
             ioE.printStackTrace();
         }
@@ -66,7 +80,7 @@ public final class FileSynchronizerTest {
     void passUserInput(String ... inputs) {
         StringBuilder allInputs = new StringBuilder();
         for (String token : inputs) {
-            allInputs.append(token).append('\n');
+            allInputs.append(token).append(System.lineSeparator());
         }
 
         userInput = new ByteArrayInputStream(allInputs.toString().getBytes());
@@ -96,7 +110,7 @@ public final class FileSynchronizerTest {
     }
 
     FileSynchronizer testingFileSynchronizer() {
-        return new FileSynchronizer(testingLocalDirectory.toString(), testingRemoteDirectory.toString(), "local", "remote", userInput, true, true);
+        return new FileSynchronizer(testingLocalDirectory.toString(), testingRemoteDirectory.toString(), "local", "remote", userInput, true);
     }
 
     @BeforeEach
@@ -277,6 +291,7 @@ public final class FileSynchronizerTest {
         Path localFile2 = Path.of("modifiedLocalFile2");
         createFiles(testingLocalDirectory, localFile1, localFile2);
 
+        passUserInput("y"); // Delete trash
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
         delay(10);
@@ -297,6 +312,7 @@ public final class FileSynchronizerTest {
         Path remoteFile2 = Path.of("modifiedRemoteFile2");
         createFiles(testingLocalDirectory, remoteFile1, remoteFile2);
 
+        passUserInput("y"); // Delete trash
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
         delay(10);
@@ -312,7 +328,7 @@ public final class FileSynchronizerTest {
     }
 
     @Test
-    void fileWithSpaceInNameSyncSuccessfully() {
+    void fileWithSpaceInNameShouldSyncSuccessfully() {
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
         delay(10);
@@ -334,7 +350,7 @@ public final class FileSynchronizerTest {
         createFiles(testingLocalDirectory, conflict);
         createFiles(testingRemoteDirectory, conflict);
 
-        passUserInput("1"); // Choose local changes
+        passUserInput("1", "y"); // Choose local changes and empty trash
 
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
@@ -343,7 +359,7 @@ public final class FileSynchronizerTest {
         appendFile(testingLocalDirectory.resolve(conflict), "Local");
         appendFile(testingRemoteDirectory.resolve(conflict), "Remote");
 
-        passUserInput("1"); // Choose local changes
+        passUserInput("1", "y"); // Choose local changes and empty trash
 
         FileSynchronizer secondSync = testingFileSynchronizer();
         secondSync.synchronizeFileTrees();
@@ -359,7 +375,7 @@ public final class FileSynchronizerTest {
         createFiles(testingLocalDirectory, conflict);
         createFiles(testingRemoteDirectory, conflict);
 
-        passUserInput("2"); // Choose local changes
+        passUserInput("2", "y"); // Choose remote changes and empty trash
 
         FileSynchronizer synchronizer = testingFileSynchronizer();
         synchronizer.synchronizeFileTrees();
@@ -368,7 +384,7 @@ public final class FileSynchronizerTest {
         appendFile(testingLocalDirectory.resolve(conflict), "Local");
         appendFile(testingRemoteDirectory.resolve(conflict), "Remote");
 
-        passUserInput("2"); // Choose local changes
+        passUserInput("2", "y"); // Choose remote changes and empty trash
 
         FileSynchronizer secondSync = testingFileSynchronizer();
         secondSync.synchronizeFileTrees();
@@ -377,26 +393,78 @@ public final class FileSynchronizerTest {
         assertEquals("Remote", getFileContents(testingRemoteDirectory.resolve(conflict)));
     }
 
+    @Test
+    void deletedLocalFileShouldBeDeletedFromRemote() {
+        Path localFile1 = Path.of("localFile1.txt");
+        Path localFile2 = Path.of("localFile2.txt");
+
+        createFiles(testingLocalDirectory, localFile1, localFile2);
+
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+        delay(10);
+
+        deleteFiles(testingLocalDirectory, localFile1, localFile2);
+
+        passUserInput("y"); // Empty trash
+        FileSynchronizer secondSync = testingFileSynchronizer();
+        secondSync.synchronizeFileTrees();
+
+        assertFalse(allFilesExist(testingRemoteDirectory, localFile1));
+        assertFalse(allFilesExist(testingRemoteDirectory, localFile2));
+    }
+
+    @Test
+    void deletedRemoteFileShouldBeDeletedFromLocal() {
+        Path remoteFile1 = Path.of("remoteFile1.txt");
+        Path remoteFile2 = Path.of("remoteFile2.txt");
+
+        createFiles(testingRemoteDirectory, remoteFile1, remoteFile2);
+
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+        delay(10);
+
+        deleteFiles(testingRemoteDirectory, remoteFile1, remoteFile2);
+
+        passUserInput("y"); // Empty trash
+        FileSynchronizer secondSync = testingFileSynchronizer();
+        secondSync.synchronizeFileTrees();
+
+        assertFalse(allFilesExist(testingLocalDirectory, remoteFile1));
+        assertFalse(allFilesExist(testingLocalDirectory, remoteFile2));
+    }
+
+    @Test
+    void deletedFilesShouldAppearInTrash() {
+        Path newLocalDir1 = Path.of("newLocalDir1");
+        Path newLocalFile1 = newLocalDir1.resolve("newLocalFile1.txt");
+
+        createDirectories(testingLocalDirectory, newLocalDir1);
+        createFiles(testingLocalDirectory, newLocalFile1);
+
+        FileSynchronizer synchronizer = testingFileSynchronizer();
+        synchronizer.synchronizeFileTrees();
+        delay(10);
+
+        deleteFiles(testingLocalDirectory, newLocalFile1, newLocalDir1);
+
+        passUserInput("n"); // Don't empty trash
+        FileSynchronizer secondSync = testingFileSynchronizer();
+        secondSync.synchronizeFileTrees();
+
+        assertTrue(allFilesExist(testingRemoteDirectory.resolve(".sync_trash"), newLocalDir1, newLocalFile1));
+    }
 
     /*
-    1. [X] No files changed since last sync
-    2. [X] Only regular files changed since last sync l/r
-    4. [X] Only directories changed since last sync l/r
-    5. [X] Files and directories changed since last sync (from only one root) l/r
     6. [ ] Directories have never been synced before
     	    (if .sync_log or sync log entry doesn't exist, give option to either set last sync time OR
     	    perform the sync with last_sync_time=0, which would update all the files to each of their
     	    latest versions, and would make the two directories identical) (l/r)
-    7. [ ] File modified since last sync in both directories, resulting in a conflict
-    9. [X] New file created l/r
-    10. [X] New directory created l/r
     11. [ ] 1000 files l/r
-    12. [ ] File is deleted since last sync l/r
-    13. [X] Files with spaces in the name l/r
     14. [ ] Excluded files are modified l/r
     15. [ ] Test .sync_exclude is written correctly l/r
     16. [ ] Test .sync_log is written correctly l/r
-    17. [ ] Test sync trash structures files correctly l/r
     18. [ ] Syncing with multiple directories l/r
     */
 }

@@ -1,8 +1,6 @@
 package fileSynchronizer;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
@@ -20,13 +18,14 @@ public class FileSynchronizer {
     private final Set<Path> excludedPaths;
     private final long lastSyncMillis;
     private final FileSyncRoot localRoot, remoteRoot;
-    private final boolean verbose, isUnitTesting;
+    private final boolean verbose;
     private final InputStream userInput;
+    private final BufferedReader userInputReader;
 
-    public FileSynchronizer(String localRootPath, String remoteRootPath, String localNickname, String remoteNickname, InputStream userInput, boolean verbose, boolean isUnitTesting) {
-        this.userInput = userInput;
+    public FileSynchronizer(String localRootPath, String remoteRootPath, String localNickname, String remoteNickname, InputStream userInput, boolean verbose) {
         this.verbose = verbose;
-        this.isUnitTesting = isUnitTesting;
+        this.userInput = userInput;
+        userInputReader = new BufferedReader(new InputStreamReader(userInput));
 
         localRoot = new FileSyncRoot(localRootPath, localNickname, remoteNickname, verbose);
         remoteRoot = new FileSyncRoot(remoteRootPath, remoteNickname, localNickname, verbose);
@@ -43,7 +42,6 @@ public class FileSynchronizer {
         // Compare file trees in a breadth-first fashion and collect paths of conflicting files
         Set<Path> conflicts = syncFileTrees(Path.of(""));
 
-        Scanner inputScanner = new Scanner(userInput);
         // Resolve conflicts manually
         for (Path conflict : conflicts) {
             ZonedDateTime localModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(localRoot.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
@@ -53,14 +51,14 @@ public class FileSynchronizer {
             System.out.println("\t" + localRoot.getNickname() + " (1): '" + conflict + "' modified " + localModified.format(timestampFormatter));
             System.out.println("\t" + remoteRoot.getNickname() + " (2): '" + conflict + "' modified " + remoteModified.format(timestampFormatter));
             System.out.print("Take changes from " + localRoot.getNickname() + " (1) or from " + remoteRoot.getNickname() + " (2)?: ");
-            boolean takeLocal = inputScanner.nextLine().equalsIgnoreCase("1");
+            boolean takeLocal = getUserInput().equalsIgnoreCase("1");
 
             if (takeLocal) remoteRoot.copyFromRemote(conflict, localRoot.getRoot());
             else localRoot.copyFromRemote(conflict, remoteRoot.getRoot());
         }
 
         // Print all trashed file names and ask user if they want to delete them or not
-        if (!isUnitTesting && (localRoot.getSyncTrash().toFile().list().length != 0 || remoteRoot.getSyncTrash().toFile().list().length != 0)) {
+        if (localRoot.getSyncTrash().toFile().list().length != 0 || remoteRoot.getSyncTrash().toFile().list().length != 0) {
             System.out.println("\nAll trashed files:");
 
             try {
@@ -71,7 +69,7 @@ public class FileSynchronizer {
             }
 
             System.out.print("Delete all trashed files? (y/n): ");
-            String deleteDecision = inputScanner.nextLine();
+            String deleteDecision = getUserInput();
 
             if (deleteDecision.equalsIgnoreCase("y")) {
                 localRoot.clearTrash();
@@ -136,6 +134,17 @@ public class FileSynchronizer {
         else localRoot.trash(relativePath);
 
         return conflicts;
+    }
+
+    private String getUserInput() {
+        try {
+            return userInputReader.readLine();
+        } catch (IOException e) {
+            System.out.println("ERROR: NO INPUT READABLE");
+            System.exit(1);
+        }
+
+        return "";
     }
 
     private boolean isExcludedPath(Path candidate) {
