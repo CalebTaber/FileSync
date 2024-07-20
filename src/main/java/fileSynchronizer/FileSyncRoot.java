@@ -67,8 +67,7 @@ public final class FileSyncRoot {
 
             FileWriter exclusionWriter = new FileWriter(syncExclude);
             for (Path excluded : excludedPaths) {
-                exclusionWriter.write(excluded.toString());
-                exclusionWriter.write("\n");
+                exclusionWriter.write(excluded.toString() + System.lineSeparator());
             }
             exclusionWriter.close();
         } catch (IOException ioE) {
@@ -95,8 +94,7 @@ public final class FileSyncRoot {
 
             FileWriter logWriter = new FileWriter(syncLog);
             for (String syncRecord : syncRecords) {
-                logWriter.write(syncRecord);
-                logWriter.write("\n");
+                logWriter.write(syncRecord + System.lineSeparator());
             }
             logWriter.close();
 

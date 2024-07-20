@@ -47,7 +47,7 @@ public class FileSynchronizer {
             ZonedDateTime localModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(localRoot.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
             ZonedDateTime remoteModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(remoteRoot.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
 
-            System.out.println("\nConflict:");
+            System.out.println(System.lineSeparator() + "Conflict:");
             System.out.println("\t" + localRoot.getNickname() + " (1): '" + conflict + "' modified " + localModified.format(timestampFormatter));
             System.out.println("\t" + remoteRoot.getNickname() + " (2): '" + conflict + "' modified " + remoteModified.format(timestampFormatter));
             System.out.print("Take changes from " + localRoot.getNickname() + " (1) or from " + remoteRoot.getNickname() + " (2)?: ");
@@ -59,7 +59,7 @@ public class FileSynchronizer {
 
         // Print all trashed file names and ask user if they want to delete them or not
         if (localRoot.getSyncTrash().toFile().list().length != 0 || remoteRoot.getSyncTrash().toFile().list().length != 0) {
-            System.out.println("\nAll trashed files:");
+            System.out.println(System.lineSeparator() + "All trashed files:");
 
             try {
                 Files.walkFileTree(localRoot.getSyncTrash(), new FileNamePrinter(localRoot.getSyncTrash(), localRoot.getNickname() + ": "));

@@ -61,9 +61,9 @@ public final class FileSynchronizerTest {
         }
     }
 
-    void appendFile(Path filepath, String textToAppend) {
+    void appendLineToFile(Path filepath, String textToAppend) {
         try {
-            Files.write(filepath, textToAppend.getBytes(), StandardOpenOption.APPEND);
+            Files.write(filepath, (System.lineSeparator() + textToAppend).getBytes(), StandardOpenOption.APPEND);
         } catch (IOException ioE) {
             ioE.printStackTrace();
         }
@@ -296,8 +296,8 @@ public final class FileSynchronizerTest {
         synchronizer.synchronizeFileTrees();
         delay(10);
 
-        appendFile(testingLocalDirectory.resolve(localFile1), "AppendTest");
-        appendFile(testingLocalDirectory.resolve(localFile2), "AppendTest2");
+        appendLineToFile(testingLocalDirectory.resolve(localFile1), "AppendTest");
+        appendLineToFile(testingLocalDirectory.resolve(localFile2), "AppendTest2");
 
         FileSynchronizer secondSync = testingFileSynchronizer();
         secondSync.synchronizeFileTrees();
@@ -317,8 +317,8 @@ public final class FileSynchronizerTest {
         synchronizer.synchronizeFileTrees();
         delay(10);
 
-        appendFile(testingLocalDirectory.resolve(remoteFile1), "AppendTest");
-        appendFile(testingLocalDirectory.resolve(remoteFile2), "AppendTest2");
+        appendLineToFile(testingLocalDirectory.resolve(remoteFile1), "AppendTest");
+        appendLineToFile(testingLocalDirectory.resolve(remoteFile2), "AppendTest2");
 
         FileSynchronizer secondSync = testingFileSynchronizer();
         secondSync.synchronizeFileTrees();
@@ -356,8 +356,8 @@ public final class FileSynchronizerTest {
         synchronizer.synchronizeFileTrees();
         delay(10);
 
-        appendFile(testingLocalDirectory.resolve(conflict), "Local");
-        appendFile(testingRemoteDirectory.resolve(conflict), "Remote");
+        appendLineToFile(testingLocalDirectory.resolve(conflict), "Local");
+        appendLineToFile(testingRemoteDirectory.resolve(conflict), "Remote");
 
         passUserInput("1", "y"); // Choose local changes and empty trash
 
@@ -381,8 +381,8 @@ public final class FileSynchronizerTest {
         synchronizer.synchronizeFileTrees();
         delay(10);
 
-        appendFile(testingLocalDirectory.resolve(conflict), "Local");
-        appendFile(testingRemoteDirectory.resolve(conflict), "Remote");
+        appendLineToFile(testingLocalDirectory.resolve(conflict), "Local");
+        appendLineToFile(testingRemoteDirectory.resolve(conflict), "Remote");
 
         passUserInput("2", "y"); // Choose remote changes and empty trash
 
@@ -456,6 +456,23 @@ public final class FileSynchronizerTest {
         assertTrue(allFilesExist(testingRemoteDirectory.resolve(".sync_trash"), newLocalDir1, newLocalFile1));
     }
 
+    @Test
+    void filesInExclusionListShouldBeIgnored() {
+        FileSynchronizer firstSync = testingFileSynchronizer();
+        firstSync.synchronizeFileTrees();
+        delay(10);
+
+        Path excludedFile = Path.of("excluded");
+        createFiles(testingLocalDirectory, excludedFile);
+        appendLineToFile(testingLocalDirectory.resolve(".sync_exclude"), "excluded");
+
+        FileSynchronizer secondSync = testingFileSynchronizer();
+        secondSync.synchronizeFileTrees();
+
+        assertFalse(allFilesExist(testingRemoteDirectory, excludedFile));
+    }
+
+
     /*
     6. [ ] Directories have never been synced before
     	    (if .sync_log or sync log entry doesn't exist, give option to either set last sync time OR
@@ -463,7 +480,6 @@ public final class FileSynchronizerTest {
     	    latest versions, and would make the two directories identical) (l/r)
     11. [ ] 1000 files l/r
     14. [ ] Excluded files are modified l/r
-    15. [ ] Test .sync_exclude is written correctly l/r
     16. [ ] Test .sync_log is written correctly l/r
     18. [ ] Syncing with multiple directories l/r
     */
