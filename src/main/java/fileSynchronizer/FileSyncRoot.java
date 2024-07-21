@@ -115,11 +115,8 @@ public final class FileSyncRoot {
 
         try {
             Path parentDirInTrash = relativePath.getParent();
-            if (parentDirInTrash != null) {
-                Files.createDirectories(syncTrash.resolve(parentDirInTrash));
-                Files.walkFileTree(absolutePath, new FileMover(absolutePath, syncTrash.resolve(parentDirInTrash), verbose));
-            }
-            else Files.walkFileTree(absolutePath, new FileMover(absolutePath, syncTrash.resolve(relativePath.getFileName()), verbose));
+            if (parentDirInTrash != null) Files.createDirectories(syncTrash.resolve(parentDirInTrash));
+            Files.walkFileTree(absolutePath, new FileMover(absolutePath, syncTrash.resolve(relativePath), verbose));
         } catch (IOException ioE) {
             System.err.println("ERROR: Could not trash all the files at '" + absolutePath + "'. Exiting...");
             System.exit(1);
