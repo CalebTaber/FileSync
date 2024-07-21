@@ -335,20 +335,20 @@ public final class FileSynchronizerTest {
     void modifiedRemoteFilesShouldBeCopiedToLocal() {
         Path remoteFile1 = Path.of("modifiedRemoteFile");
         Path remoteFile2 = Path.of("modifiedRemoteFile2");
-        createFiles(testingLocalDirectory, remoteFile1, remoteFile2);
+        createFiles(testingRemoteDirectory, remoteFile1, remoteFile2);
 
         FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
         firstSync.synchronizeFileTrees();
         delay(10);
 
-        appendLineToFile(testingLocalDirectory.resolve(remoteFile1), "AppendTest");
-        appendLineToFile(testingLocalDirectory.resolve(remoteFile2), "AppendTest2");
+        appendLineToFile(testingRemoteDirectory.resolve(remoteFile1), "AppendTest");
+        appendLineToFile(testingRemoteDirectory.resolve(remoteFile2), "AppendTest2");
 
         FileSynchronizer secondSync = testingFileSynchronizer(false, true, true);
         secondSync.synchronizeFileTrees();
 
-        assertEquals("AppendTest", getFileContents(testingRemoteDirectory.resolve(remoteFile1)));
-        assertEquals("AppendTest2", getFileContents(testingRemoteDirectory.resolve(remoteFile2)));
+        assertEquals("AppendTest", getFileContents(testingLocalDirectory.resolve(remoteFile1)));
+        assertEquals("AppendTest2", getFileContents(testingLocalDirectory.resolve(remoteFile2)));
     }
 
     @Test
