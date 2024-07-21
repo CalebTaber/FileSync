@@ -125,7 +125,7 @@ public final class FileSyncRoot {
         trash(relativePath);
 
         try {
-            Files.walkFileTree(remoteRoot.resolve(relativePath), new FileCopier(remoteRoot.resolve(relativePath), root.resolve(relativePath), excludedPaths, verbose));
+            Files.walkFileTree(remoteRoot.resolve(relativePath), new FileCopier(remoteRoot.resolve(relativePath), root.resolve(relativePath), excludedPaths, remoteNickname, nickname, verbose));
         } catch (IOException ioE) {
             System.err.println("ERROR: Could not copy all the files from '" + remoteRoot.resolve(relativePath) + "'. Exiting...");
             System.exit(1);

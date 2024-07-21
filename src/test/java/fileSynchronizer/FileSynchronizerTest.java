@@ -580,4 +580,27 @@ public final class FileSynchronizerTest {
         assertTrue(getFileLines(testingRemoteDirectory.resolve(syncExclude)).contains("remoteFile2"));
         assertTrue(getFileLines(testingRemoteDirectory.resolve(syncExclude)).contains("remoteFile2"));
     }
+    
+    @Test
+    void localNestedExcludedFilesShouldBeIgnoredDuringSync() {
+    	Path newLocalDir = Path.of("newLocalDir");
+    	Path newLocalFile = Path.of("newLocalFile");
+    	Path excludedFile = newLocalDir.resolve("excludedFile");
+    	Path excludedDir = newLocalDir.resolve("excludedDir");
+    	Path excludedFile2 = excludedDir.resolve("excludedFile2");
+    	
+    	createDirectories(testingLocalDirectory, newLocalDir, excludedDir);
+        createFiles(testingLocalDirectory, newLocalFile, excludedFile, excludedFile2, Path.of(".sync_exclude"));
+        
+        appendLineToFile(testingLocalDirectory.resolve(".sync_exclude"), "excludedFile");
+        appendLineToFile(testingLocalDirectory.resolve(".sync_exclude"), "excludedDir");
+    	
+    	FileSynchronizer firstSync = testingFileSynchronizer(true, true, true);
+        firstSync.synchronizeFileTrees();
+
+        assertTrue(allFilesExist(testingRemoteDirectory, newLocalDir, newLocalFile));
+        assertFalse(allFilesExist(testingRemoteDirectory, excludedDir));
+        assertFalse(allFilesExist(testingRemoteDirectory, excludedFile));
+        assertFalse(allFilesExist(testingRemoteDirectory, excludedFile2));
+    }
 }
