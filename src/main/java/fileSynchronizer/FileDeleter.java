@@ -23,16 +23,15 @@ public class FileDeleter extends SimpleFileVisitor<Path> {
     }
 
     @Override
-    public FileVisitResult visitFileFailed(Path path, IOException e) {
-        System.err.println("ERROR: Deletion of file '" + path + "' failed. Exiting...");
-        System.exit(1);
-        return FileVisitResult.TERMINATE;
-    }
-
-    @Override
     public FileVisitResult postVisitDirectory(Path path, IOException e) throws IOException {
         Files.delete(path);
         if (verbose) System.out.println("DELETE: " + path);
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFileFailed(Path path, IOException e) {
+        System.err.println("ERROR: Deletion failed: '" + path + "'");
         return FileVisitResult.CONTINUE;
     }
 

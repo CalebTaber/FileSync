@@ -162,9 +162,8 @@ public final class FileSynchronizerTest {
 
                 @Override
                 public FileVisitResult visitFileFailed(Path path, IOException e) throws IOException {
-                    System.err.println("TEST ERROR: Could not visit file '" + path + "'");
-                    System.exit(1);
-                    return FileVisitResult.TERMINATE;
+                    System.err.println("TEST ERROR: Delete failed: '" + path + "'");
+                    return FileVisitResult.CONTINUE;
                 }
 
                 @Override

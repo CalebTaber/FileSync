@@ -12,8 +12,9 @@ public final class FileSyncRoot {
     private final File syncExclude, syncLog;
     private final long lastSyncMillis;
     private final String nickname, remoteNickname;
-    private final Set<Path> excludedPaths;
     private final boolean verbose;
+
+    private Set<Path> excludedPaths;
 
     public FileSyncRoot(String rootPath, String nickname, String remoteNickname, boolean verbose) {
         root = Path.of(rootPath);
@@ -61,7 +62,7 @@ public final class FileSyncRoot {
         return nickname;
     }
 
-    public void writeExcludedPathsList(Set<Path> excludedPaths) {
+    public void writeExcludedPathsList() {
         try {
             syncExclude.createNewFile();
 
@@ -71,9 +72,13 @@ public final class FileSyncRoot {
             }
             exclusionWriter.close();
         } catch (IOException ioE) {
-            System.out.println("ERROR: Could not create file '" + syncExclude.toPath() + "'. Exiting...");
+            System.err.println("ERROR: Could not create file '" + syncExclude.toPath() + "'. Exiting...");
             System.exit(1);
         }
+    }
+
+    public void setExcludedPaths(Set<Path> excludedPaths) {
+        this.excludedPaths = excludedPaths;
     }
 
     public void setLastSync(long newLastSyncMillis) {
@@ -99,7 +104,7 @@ public final class FileSyncRoot {
             logWriter.close();
 
         } catch (IOException ioE) {
-            if (verbose) System.out.println("ERROR: Last sync could not be set. Exiting...");
+            System.err.println("ERROR: Last sync could not be set. Exiting...");
             System.exit(1);
         }
     }
@@ -111,7 +116,7 @@ public final class FileSyncRoot {
         try {
             Files.walkFileTree(absolutePath, new FileMover(absolutePath, syncTrash.resolve(absolutePath.getFileName()), verbose));
         } catch (IOException ioE) {
-            System.out.println("ERROR: Could not trash all the files at '" + absolutePath + "'. Exiting...");
+            System.err.println("ERROR: Could not trash all the files at '" + absolutePath + "'. Exiting...");
             System.exit(1);
         }
     }
@@ -120,9 +125,9 @@ public final class FileSyncRoot {
         trash(relativePath);
 
         try {
-            Files.walkFileTree(remoteRoot.resolve(relativePath), new FileCopier(remoteRoot.resolve(relativePath), root.resolve(relativePath), verbose));
+            Files.walkFileTree(remoteRoot.resolve(relativePath), new FileCopier(remoteRoot.resolve(relativePath), root.resolve(relativePath), excludedPaths, verbose));
         } catch (IOException ioE) {
-            System.out.println("ERROR: Could not trash all the files at '" + remoteRoot.resolve(relativePath) + "'. Exiting...");
+            System.err.println("ERROR: Could not copy all the files from '" + remoteRoot.resolve(relativePath) + "'. Exiting...");
             System.exit(1);
         }
     }
@@ -133,7 +138,7 @@ public final class FileSyncRoot {
             try {
                 Files.walkFileTree(syncTrash, new FileDeleter(false));
             } catch (IOException ioE) {
-                System.out.println("ERROR: Clearing trash in '" + nickname + "' failed. Exiting...");
+                System.err.println("ERROR: Clearing trash in '" + nickname + "' failed. Exiting...");
                 System.exit(1);
             }
         }
@@ -141,7 +146,7 @@ public final class FileSyncRoot {
         try {
             Files.createDirectory(syncTrash);
         } catch (IOException ioE) {
-            System.out.println("ERROR: Creating trash directory in '" + nickname + "' failed. Exiting...");
+            System.err.println("ERROR: Creating trash directory in '" + nickname + "' failed. Exiting...");
             System.exit(1);
         }
     }
@@ -158,7 +163,7 @@ public final class FileSyncRoot {
             }
             exclusionReader.close();
         } catch (IOException ioE) {
-            System.out.println("ERROR: Could not read file '" + syncExclude.toPath() + "'. Exiting...");
+            System.err.println("ERROR: Could not read file '" + syncExclude.toPath() + "'. Exiting...");
             System.exit(1);
         }
 

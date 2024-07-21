@@ -39,9 +39,8 @@ public class FileMover extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult visitFileFailed(Path path, IOException e) {
-        System.err.println("ERROR: Moving file '" + path + "' to '" + destinationDir.resolve(sourceDir.relativize(path)) + "' failed. Exiting...");
-        System.exit(1);
-        return FileVisitResult.TERMINATE;
+        System.err.println("ERROR: Move failed: '" + path + "' -> '" + destinationDir.resolve(sourceDir.relativize(path)) + "'");
+        return FileVisitResult.CONTINUE;
     }
 
 }

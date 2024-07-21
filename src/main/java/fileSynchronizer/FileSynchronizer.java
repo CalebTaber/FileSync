@@ -32,6 +32,9 @@ public class FileSynchronizer {
         excludedPaths = localRoot.getExcludedPaths();
         excludedPaths.addAll(remoteRoot.getExcludedPaths());
 
+        localRoot.setExcludedPaths(excludedPaths);
+        remoteRoot.setExcludedPaths(excludedPaths);
+
         // Get last sync time
         lastSyncMillis = Math.max(localRoot.getLastSyncMillis(), remoteRoot.getLastSyncMillis());
     }
@@ -96,8 +99,8 @@ public class FileSynchronizer {
 
     private void closeRoots() {
         // Export excluded paths to .sync_exclude
-        localRoot.writeExcludedPathsList(excludedPaths);
-        remoteRoot.writeExcludedPathsList(excludedPaths);
+        localRoot.writeExcludedPathsList();
+        remoteRoot.writeExcludedPathsList();
 
         // Set new last sync records
         long newSyncTimeMillis = System.currentTimeMillis();
