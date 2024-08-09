@@ -116,7 +116,7 @@ public final class FileSyncRoot {
         try {
             Path parentDirInTrash = relativePath.getParent();
             if (parentDirInTrash != null) Files.createDirectories(syncTrash.resolve(parentDirInTrash));
-            Files.walkFileTree(absolutePath, new FileMover(absolutePath, syncTrash.resolve(relativePath), verbose));
+            Files.walkFileTree(absolutePath, new FileMover(absolutePath, syncTrash.resolve(relativePath), nickname, "trash", root, verbose));
         } catch (IOException ioE) {
             System.err.println("ERROR: Could not trash all the files at '" + absolutePath + "'. Exiting...");
             System.exit(1);
@@ -138,7 +138,7 @@ public final class FileSyncRoot {
         if (syncTrash.toFile().exists()) {
             // Delete any pre-existing trashed files before creating the directory again
             try {
-                Files.walkFileTree(syncTrash, new FileDeleter(false));
+                Files.walkFileTree(syncTrash, new FileDeleter(nickname, root, false));
             } catch (IOException ioE) {
                 System.err.println("ERROR: Clearing trash in '" + nickname + "' failed. Exiting...");
                 System.exit(1);

@@ -7,18 +7,30 @@ import java.nio.file.attribute.BasicFileAttributes;
 public class FileMover extends SimpleFileVisitor<Path> {
 
     private final boolean verbose;
-    private final Path sourceDir, destinationDir;
+    private final Path sourceDir, destinationDir, sourceRoot;
+    private final String sourceNickname, destinationNickname;
 
-    public FileMover(Path sourceDir, Path destinationDir, boolean verbose) {
-        this.verbose = verbose;
+    // TODO add root nicknames to make messages more succinct
+
+    public FileMover(Path sourceDir, Path destinationDir, String sourceNickname, String destinationNickname, Path sourceRoot, boolean verbose) {
         this.sourceDir = sourceDir;
         this.destinationDir = destinationDir;
+        this.sourceNickname = sourceNickname;
+        this.destinationNickname = destinationNickname;
+        this.sourceRoot = sourceRoot;
+        this.verbose = verbose;
+    }
+
+    private void logMove(Path filePath) {
+        if (!verbose) return;
+
+        System.out.println("MOVE: " + sourceNickname + " '" + sourceRoot.relativize(filePath) + "' to " + destinationNickname + " '" + sourceRoot.relativize(filePath) + "'");
     }
 
     @Override
     public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes basicFileAttributes) throws IOException {
         Files.copy(path, destinationDir.resolve(sourceDir.relativize(path)), StandardCopyOption.COPY_ATTRIBUTES);
-        if (verbose) System.out.println("MOVE: " + path + " -> " + destinationDir.resolve(sourceDir.relativize(path)));
+        logMove(path);
         return FileVisitResult.CONTINUE;
     }
 
@@ -27,7 +39,7 @@ public class FileMover extends SimpleFileVisitor<Path> {
         Path absoluteDestination = destinationDir.resolve(sourceDir.relativize(path));
 
         Files.move(path, absoluteDestination);
-        if (verbose) System.out.println("MOVE: " + path + " -> " + destinationDir.resolve(sourceDir.relativize(path)));
+        logMove(path);
 
         return FileVisitResult.CONTINUE;
     }
@@ -35,7 +47,7 @@ public class FileMover extends SimpleFileVisitor<Path> {
     @Override
     public FileVisitResult postVisitDirectory(Path path, IOException e) throws IOException {
         Files.delete(path);
-        if (verbose) System.out.println("MOVE: " + path + " -> " + destinationDir.resolve(sourceDir.relativize(path)));
+        logMove(path);
         return FileVisitResult.CONTINUE;
     }
 

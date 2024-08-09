@@ -113,7 +113,9 @@ public class FileSynchronizer {
             BasicFileAttributes fileAttrs = Files.readAttributes(absolutePath, BasicFileAttributes.class);
             return fileAttrs.creationTime().toMillis();
         } catch (IOException ioE) {
-            return -1;
+            System.out.println("ERROR: Could not get file creation time of '" + absolutePath + "'");
+            // If the file creation time cannot be ascertained, err on the side of caution and return max long value so no files are erroneously deleted
+            return Long.MAX_VALUE;
         }
     }
 
