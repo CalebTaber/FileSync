@@ -603,4 +603,106 @@ public final class FileSynchronizerTest {
         assertFalse(allFilesExist(testingRemoteDirectory, excludedFile));
         assertFalse(allFilesExist(testingRemoteDirectory, excludedFile2));
     }
+
+    @Test
+    void syncConflictsShouldAllBeCopiedToRemoteFromLocal() {
+        Path conflict1 = Path.of("conflictFile1");
+        Path conflict2 = Path.of("conflictFile2");
+        Path conflict3 = Path.of("conflictFile3");
+        Path conflict4 = Path.of("conflictFile4");
+        createFiles(testingLocalDirectory, conflict1, conflict2, conflict3, conflict4);
+        createFiles(testingRemoteDirectory, conflict1, conflict2, conflict3, conflict4);
+
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true, "1!");
+        firstSync.synchronizeFileTrees();
+        delay(10);
+
+        appendLineToFile(testingLocalDirectory.resolve(conflict1), "Local1");
+        appendLineToFile(testingLocalDirectory.resolve(conflict2), "Local2");
+        appendLineToFile(testingLocalDirectory.resolve(conflict3), "Local3");
+        appendLineToFile(testingLocalDirectory.resolve(conflict4), "Local4");
+
+        appendLineToFile(testingRemoteDirectory.resolve(conflict1), "Remote1");
+        appendLineToFile(testingRemoteDirectory.resolve(conflict2), "Remote2");
+        appendLineToFile(testingRemoteDirectory.resolve(conflict3), "Remote3");
+        appendLineToFile(testingRemoteDirectory.resolve(conflict4), "Remote4");
+
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true, "1!");
+        secondSync.synchronizeFileTrees();
+
+        assertEquals("Local1", getFileContents(testingLocalDirectory.resolve(conflict1)));
+        assertEquals("Local2", getFileContents(testingLocalDirectory.resolve(conflict2)));
+        assertEquals("Local3", getFileContents(testingLocalDirectory.resolve(conflict3)));
+        assertEquals("Local4", getFileContents(testingLocalDirectory.resolve(conflict4)));
+        assertEquals("Local1", getFileContents(testingRemoteDirectory.resolve(conflict1)));
+        assertEquals("Local2", getFileContents(testingRemoteDirectory.resolve(conflict2)));
+        assertEquals("Local3", getFileContents(testingRemoteDirectory.resolve(conflict3)));
+        assertEquals("Local4", getFileContents(testingRemoteDirectory.resolve(conflict4)));
+    }
+
+    @Test
+    void syncConflictsShouldAllBeCopiedToLocalFromRemote() {
+        Path conflict1 = Path.of("conflictFile1");
+        Path conflict2 = Path.of("conflictFile2");
+        Path conflict3 = Path.of("conflictFile3");
+        Path conflict4 = Path.of("conflictFile4");
+        createFiles(testingLocalDirectory, conflict1, conflict2, conflict3, conflict4);
+        createFiles(testingRemoteDirectory, conflict1, conflict2, conflict3, conflict4);
+
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true, "2!");
+        firstSync.synchronizeFileTrees();
+        delay(10);
+
+        appendLineToFile(testingLocalDirectory.resolve(conflict1), "Local1");
+        appendLineToFile(testingLocalDirectory.resolve(conflict2), "Local2");
+        appendLineToFile(testingLocalDirectory.resolve(conflict3), "Local3");
+        appendLineToFile(testingLocalDirectory.resolve(conflict4), "Local4");
+
+        appendLineToFile(testingRemoteDirectory.resolve(conflict1), "Remote1");
+        appendLineToFile(testingRemoteDirectory.resolve(conflict2), "Remote2");
+        appendLineToFile(testingRemoteDirectory.resolve(conflict3), "Remote3");
+        appendLineToFile(testingRemoteDirectory.resolve(conflict4), "Remote4");
+
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true, "2!");
+        secondSync.synchronizeFileTrees();
+
+        assertEquals("Remote1", getFileContents(testingLocalDirectory.resolve(conflict1)));
+        assertEquals("Remote2", getFileContents(testingLocalDirectory.resolve(conflict2)));
+        assertEquals("Remote3", getFileContents(testingLocalDirectory.resolve(conflict3)));
+        assertEquals("Remote4", getFileContents(testingLocalDirectory.resolve(conflict4)));
+        assertEquals("Remote1", getFileContents(testingRemoteDirectory.resolve(conflict1)));
+        assertEquals("Remote2", getFileContents(testingRemoteDirectory.resolve(conflict2)));
+        assertEquals("Remote3", getFileContents(testingRemoteDirectory.resolve(conflict3)));
+        assertEquals("Remote4", getFileContents(testingRemoteDirectory.resolve(conflict4)));
+    }
+
+    @Test
+    void syncConflictInvalidChoiceShouldBeRecoverable() {
+        Path conflict = Path.of("conflictFile");
+        createFiles(testingLocalDirectory, conflict);
+        createFiles(testingRemoteDirectory, conflict);
+
+        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true, "?", "1");
+        firstSync.synchronizeFileTrees();
+        delay(10);
+
+        appendLineToFile(testingLocalDirectory.resolve(conflict), "Local");
+        appendLineToFile(testingRemoteDirectory.resolve(conflict), "Remote");
+
+        FileSynchronizer secondSync = testingFileSynchronizer(false, true, true, "1");
+        secondSync.synchronizeFileTrees();
+
+        assertEquals("Local", getFileContents(testingLocalDirectory.resolve(conflict)));
+        assertEquals("Local", getFileContents(testingRemoteDirectory.resolve(conflict)));
+    }
+
+//    @Test
+//    void directoryAndFileAtTheSamePathShouldExitWithError() {
+//        Path conflict = Path.of("conflictFile");
+//        createFiles(testingLocalDirectory, conflict);
+//        createDirectories(testingRemoteDirectory, conflict);
+//
+//        FileSynchronizer firstSync = testingFileSynchronizer(true, true, true, "1");
+//        firstSync.synchronizeFileTrees();
+//    }
 }

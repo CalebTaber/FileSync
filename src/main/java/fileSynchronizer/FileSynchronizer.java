@@ -57,20 +57,36 @@ public class FileSynchronizer {
         // Compare file trees in a breadth-first fashion and collect paths of conflicting files
         Set<Path> conflicts = syncFileTrees(Path.of(""));
 
+        boolean takeAllLocal = false;
+        boolean takeAllRemote = false;
+
         // Resolve conflicts manually
         for (Path conflict : conflicts) {
             ZonedDateTime localModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(localRoot.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
             ZonedDateTime remoteModified = ZonedDateTime.ofInstant(Instant.ofEpochMilli(remoteRoot.resolve(conflict).toFile().lastModified()), ZoneId.systemDefault());
 
-            System.out.println(System.lineSeparator() + "Conflict:");
-            System.out.println("\t" + localRoot.getNickname() + " (1): '" + conflict + "' modified " + localModified.format(timestampFormatter));
-            System.out.println("\t" + remoteRoot.getNickname() + " (2): '" + conflict + "' modified " + remoteModified.format(timestampFormatter));
-            System.out.print("Take changes from " + localRoot.getNickname() + " (1) or from " + remoteRoot.getNickname() + " (2)?: ");
-            String decision = getUserInput();
-            boolean takeLocal = decision.equalsIgnoreCase("1");
+            boolean isValidDecision = false;
+            String decision = "";
 
-            if (takeLocal) remoteRoot.copyFromRemote(conflict, localRoot.getRoot());
-            else localRoot.copyFromRemote(conflict, remoteRoot.getRoot());
+            while (!isValidDecision && !takeAllLocal && !takeAllRemote) {
+                System.out.println(System.lineSeparator() + "Conflict:");
+                System.out.println("\t" + localRoot.getNickname() + " (1): '" + conflict + "' modified " + localModified.format(timestampFormatter));
+                System.out.println("\t" + remoteRoot.getNickname() + " (2): '" + conflict + "' modified " + remoteModified.format(timestampFormatter));
+                System.out.print("Take changes from " + localRoot.getNickname() + " (1) or from " + remoteRoot.getNickname() + " (2)? (Append '!' to take all changes): ");
+
+                decision = getUserInput();
+
+                isValidDecision = decision.equalsIgnoreCase("1") || decision.equalsIgnoreCase("1!") || decision.equalsIgnoreCase("2") || decision.equalsIgnoreCase("2!");
+
+                if (decision.equalsIgnoreCase("1!")) takeAllLocal = true;
+                else if (decision.equalsIgnoreCase("2!")) takeAllRemote = true;
+
+                if (!isValidDecision) System.out.println("Invalid response: '" + decision + "'");
+            }
+
+
+            if (takeAllLocal || decision.equalsIgnoreCase("1")) remoteRoot.copyFromRemote(conflict, localRoot.getRoot());
+            else if (takeAllRemote || decision.equalsIgnoreCase("2")) localRoot.copyFromRemote(conflict, remoteRoot.getRoot());
         }
 
         // Print all trashed file names and ask user if they want to delete them or not
