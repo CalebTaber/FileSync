@@ -10,8 +10,6 @@ public class FileMover extends SimpleFileVisitor<Path> {
     private final Path sourceDir, destinationDir, sourceRoot;
     private final String sourceNickname, destinationNickname;
 
-    // TODO add root nicknames to make messages more succinct
-
     public FileMover(Path sourceDir, Path destinationDir, String sourceNickname, String destinationNickname, Path sourceRoot, boolean verbose) {
         this.sourceDir = sourceDir;
         this.destinationDir = destinationDir;
